@@ -170,12 +170,12 @@ def video_block(data, mime="video/mp4"):
     return {"type": "video", "data": b64(data), "mime_type": mime}
 
 
-def decide(blocks, questions, timeout=20, tries=4):
+def decide(blocks, questions, timeout=20, tries=4, gap=None):
     """Decisions API. Returns {"answers": {...}, "latency": s, "tokens": n}.
     Request and response shapes are the ones measured in research/feasibility/FINDINGS.md."""
     t = time.time()
     d = _post_retry("/v1beta/decisions", {"model": config.MODELS["decision"], "input": blocks, "questions": questions},
-                    timeout, tries, gap=config.DECISIONS_MIN_GAP_S)
+                    timeout, tries, gap=config.DECISIONS_MIN_GAP_S if gap is None else gap)
     if not isinstance(d, dict) or "answers" not in d:
         raise ApiError(200, "no answers in response: " + json.dumps(d)[:300])
     return {"answers": d["answers"], "latency": round(time.time() - t, 3),

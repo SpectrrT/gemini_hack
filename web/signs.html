@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wordless · Sequences</title>
+<style>
+  :root { --ink:#111; --paper:#fbfaf6; --line:#111; --mute:#77736a; --soft:#e9e6dc; --green:#1f9d55; --amber:#e0a100; --red:#d5392b; --blue:#1f5fd0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 -apple-system, "Helvetica Neue", Arial, sans-serif; color:var(--ink); background:var(--paper); }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding:12px 22px; border-bottom:3px solid var(--line); background:#fff; position:sticky; top:0; z-index:5; }
+  header h1 { font-size:22px; margin:0; letter-spacing:.5px; font-weight:800; }
+  header .tag { color:var(--mute); font-size:13px; }
+  header a { color:var(--ink); font-weight:700; margin-left:auto; }
+  .pill { font-size:12px; font-weight:700; padding:3px 9px; border:2px solid var(--line); text-transform:uppercase; letter-spacing:.6px; }
+  .pill.replay { background:#fff3c4; } .pill.live { background:#d6f5e0; }
+  main { padding:20px 22px 60px; max-width:1500px; margin:0 auto; display:grid; grid-template-columns:minmax(340px, 520px) 1fr; gap:24px; align-items:start; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } }
+  .box { border:3px solid var(--line); background:#fff; padding:14px; margin-bottom:18px; }
+  .box h2 { margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.8px; }
+  button.act { font:inherit; font-weight:700; padding:9px 16px; border:2px solid var(--line); background:#fff; cursor:pointer; }
+  button.act.primary { background:var(--ink); color:#fff; }
+  button.act:disabled { opacity:.4; cursor:default; }
+  button.mini { font:inherit; font-size:12px; font-weight:700; padding:3px 8px; border:2px solid var(--line); background:#fff; cursor:pointer; }
+  select, input[type=text] { font:inherit; padding:7px 8px; border:2px solid var(--line); background:#fff; max-width:100%; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+  .note { color:var(--mute); font-size:13px; } .err { color:var(--red); font-weight:600; }
+  .cam { position:relative; background:#000; }
+  .cam video { width:100%; display:block; aspect-ratio:4/3; object-fit:cover; transform:scaleX(-1); }
+  .cam .over { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:900; text-shadow:0 2px 12px #000; pointer-events:none; text-align:center; }
+  .cam .over .big { font-size:110px; line-height:1; } .cam .over .what { font-size:30px; }
+  .cam .nowlab { position:absolute; left:10px; bottom:10px; background:var(--ink); color:#fff; font-weight:800; padding:4px 10px; font-size:18px; }
+  .stat { font-size:12px; font-variant-numeric:tabular-nums; color:var(--mute); margin-top:8px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; }
+  .sign { position:relative; border:3px solid var(--line); background:#fff; }
+  .sign img { width:100%; aspect-ratio:4/3; object-fit:contain; display:block; background:#fff; }
+  .sign .num { position:absolute; left:0; top:0; background:var(--ink); color:#fff; font-weight:800; padding:1px 8px; }
+  .sign .nm { font-size:13px; font-weight:700; padding:3px 6px; border-top:2px solid var(--line); display:flex; justify-content:space-between; gap:4px; }
+  .sign .nm a { cursor:pointer; color:var(--mute); }
+  .sign.todo { border-style:dashed; cursor:pointer; display:grid; place-items:center; min-height:120px; color:var(--mute); font-weight:700; text-align:center; padding:6px; }
+  .sign.pick { cursor:pointer; } .sign.hot { box-shadow:0 0 0 4px var(--blue); }
+  .strip { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-height:96px; }
+  .strip .sign { width:118px; }
+  .strip .arrow { font-size:26px; font-weight:900; }
+  .sign.match { box-shadow:inset 0 0 0 6px var(--green); } .sign.wrong, .sign.missing { box-shadow:inset 0 0 0 6px var(--red); background:#fdecea; }
+  .sign.extra { box-shadow:inset 0 0 0 6px var(--amber); } .sign.pending { opacity:.45; }
+  .sign .tagx { position:absolute; right:4px; top:2px; font-weight:900; font-size:20px; }
+  .seq { display:grid; grid-template-columns:1fr auto; gap:6px 10px; padding:8px 0; border-bottom:1px solid var(--soft); align-items:center; }
+  .seq b { font-size:16px; } .seq .chips { font-size:13px; color:var(--mute); }
+  .seq .bar { grid-column:1 / -1; height:10px; border:2px solid var(--line); background:#fff; } .seq .bar i { display:block; height:100%; background:var(--green); width:0; transition:width .15s; }
+  .seq.lead b { color:var(--green); }
+  .verdict { border:3px solid var(--line); padding:14px 16px; font-size:28px; font-weight:800; background:#fff; min-height:70px; margin-bottom:12px; }
+  .verdict.exact { background:#d6f5e0; } .verdict.near, .verdict.errors { background:#fff3c4; } .verdict.unknown, .verdict.nothing { background:#fdecea; }
+  .verdict small { display:block; font-size:13px; font-weight:600; color:var(--mute); margin-top:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>WORDLESS</h1>
+  <span class="tag">Sequences: show each pose once. It then names any fast sequence of them.</span>
+  <span id="mode" class="pill">…</span>
+  <a href="/">Routines &#8594;</a>
+</header>
+<main>
+<div>
+  <div class="box">
+    <h2>Camera</h2>
+    <div class="cam"><video id="cam" autoplay muted playsinline></video><div class="over" id="over"></div><div class="nowlab" id="nowlab" hidden></div></div>
+    <div class="row">
+      <button class="act primary" id="go">Start: which sequence is it?</button>
+      <button class="act" id="stop" disabled>Stop</button>
+      <select id="fps" title="questions per second"><option value="3">3 / s</option><option value="5" selected>5 / s</option><option value="8">8 / s</option></select>
+    </div>
+    <div class="row"><label class="note">or score a clip <input type="file" id="clip" accept="video/*"></label></div>
+    <div class="stat" id="stat">camera off</div>
+    <div class="err" id="err"></div>
+  </div>
+  <div class="box">
+    <h2>Kit</h2>
+    <div class="row">
+      <select id="kit"></select>
+      <select id="preset"></select>
+      <input type="text" id="title" placeholder="or a new kit's name" size="16">
+      <button class="act" id="newkit">New kit</button>
+    </div>
+    <div class="note" id="kitnote">A kit is a set of poses you show the camera once, plus named sequences of them. Any poses: hand signals, counts, positions of a tool.</div>
+  </div>
+</div>
+<div>
+  <div class="verdict" id="verdict">Teach a few poses, name a sequence, then press Start.</div>
+  <div class="box">
+    <h2>Seen <span class="note" id="seenNote"></span></h2>
+    <div class="strip" id="seen"></div>
+  </div>
+  <div class="box">
+    <h2>Known sequences</h2>
+    <div id="seqs"></div>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="seqname" placeholder="new sequence name" size="18">
+      <span class="note" id="seqdraft">click poses below to build it</span>
+      <button class="mini" id="seqclear">clear</button>
+      <button class="act" id="seqsave">Save sequence</button>
+    </div>
+  </div>
+  <div class="box">
+    <h2>Poses <span class="note">one photo each, taken after a 3 s countdown so both hands are free</span></h2>
+    <div class="row">
+      <input type="text" id="signname" placeholder="pose name" size="16">
+      <button class="act" id="teach">Teach this pose</button>
+      <button class="act" id="teachall" hidden>Teach all remaining</button>
+      <label class="note"><input type="checkbox" id="showphoto"> show photos, not drawings</label>
+    </div>
+    <div class="grid" id="signs"></div>
+  </div>
+</div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const api = async (url, body, raw) => {
+  const r = await fetch(url, body === undefined ? {} : raw ? {method:'POST', body} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const d = await r.json().catch(() => ({error:'bad response'}));
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+};
+const S = {kit:null, status:null, draft:[], cam:null, sid:null, tick:null, poll:null, i:0, t0:0, busy:false, target:null};
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId = id => S.kit.signs.find(s => s.id === id);
+const pic = s => $('#showphoto').checked ? s.photo : s.picture;
+
+async function loadStatus(pick) {
+  S.status = await api('/api/signs/status');
+  $('#mode').textContent = S.status.tape === 'replay' ? 'REPLAY' : 'LIVE';
+  $('#mode').className = 'pill ' + (S.status.tape === 'replay' ? 'replay' : 'live');
+  $('#kit').innerHTML = S.status.kits.map(k => `<option value="${k.id}">${esc(k.title)} · ${k.signs} poses</option>`).join('') || '<option value="">no kit yet</option>';
+  $('#preset').innerHTML = '<option value="">blank kit</option>' + S.status.presets.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('')
+    + S.status.cards.map(c => `<option value="card:${c.id}">from routine: ${esc(c.title)}</option>`).join('');
+  if (pick) $('#kit').value = pick;
+  if ($('#kit').value) await loadKit($('#kit').value);
+}
+async function loadKit(id) { S.kit = await api('/api/signs/kits/' + id); S.draft = []; S.target = null; renderKit(); }
+
+function cell(s, n, cls, tag) {
+  return `<div class="sign ${cls || ''}" data-id="${s.id}"><span class="num">${n}</span>${tag ? `<span class="tagx">${tag}</span>` : ''}<img src="${pic(s)}"><div class="nm"><span>${esc(s.name)}</span></div></div>`;
+}
+function renderKit() {
+  const k = S.kit; if (!k) return;
+  const todo = (k.preset ? k.preset.signs : []).filter(n => !k.signs.some(s => s.name.toLowerCase() === n.toLowerCase()));
+  $('#teachall').hidden = !todo.length;
+  $('#kitnote').textContent = k.preset && k.preset.note ? k.preset.note : $('#kitnote').textContent;
+  $('#signs').innerHTML = k.signs.map((s, i) =>
+    `<div class="sign pick" data-id="${s.id}"><span class="num">${i + 1}</span><img src="${pic(s)}"><div class="nm"><span>${esc(s.name)}${s.drawn ? '' : ' ·'}</span><a data-del="${s.id}" title="remove">✕</a></div></div>`).join('')
+    + todo.map(n => `<div class="sign todo" data-todo="${esc(n)}">${esc(n)}<br>click to teach</div>`).join('');
+  renderSeqs(null);
+  renderDraft();
+  if (k.signs.some(s => !s.drawn) && S.status.tape !== 'replay') { clearTimeout(S.redraw); S.redraw = setTimeout(async () => { if (!S.sid) { S.kit = await api('/api/signs/kits/' + k.id); renderKit(); } }, 2500); }
+}
+function renderSeqs(cands) {
+  const k = S.kit;
+  const rows = (cands || k.sequences.map(q => ({id:q.id, name:q.name, covered:0, errors:0, length:q.signs.length})));
+  $('#seqs').innerHTML = rows.map((c, n) => {
+    const q = k.sequences.find(q => q.id === c.id); if (!q) return '';
+    const chips = q.signs.map(id => { const s = byId(id); return s ? k.signs.indexOf(s) + 1 : '?'; }).join(' → ');
+    const pct = Math.round(100 * (c.covered || 0) / Math.max(c.length, 1));
+    return `<div class="seq ${cands && n === 0 && c.covered ? 'lead' : ''}"><div><b>${esc(q.name)}</b> <span class="chips">${chips}</span>${cands && c.covered ? ` <span class="note">${c.covered}/${c.length}${c.errors ? ', ' + c.errors + ' off' : ''}</span>` : ''}</div>
+      <div><button class="mini" data-show="${q.id}">Show the steps</button> <button class="mini" data-practice="${q.id}">Check someone doing it</button> <button class="mini" data-qdel="${q.id}">✕</button></div>
+      <div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('') || '<div class="note">No sequences yet. Name one, click poses in order, save.</div>';
+}
+function renderDraft() { $('#seqdraft').textContent = S.draft.length ? S.draft.map(id => byId(id).name).join(' → ') : 'click poses below to build it'; }
+function renderSeen(seen, note) {
+  $('#seen').innerHTML = seen.map((g, n) => { const s = byId(g.label); return s ? (n ? '<span class="arrow">→</span>' : '') + cell(s, n + 1) : ''; }).join('') || '<span class="note">nothing yet</span>';
+  $('#seenNote').textContent = note || '';
+}
+function renderResult(r) {
+  const v = $('#verdict');
+  v.className = 'verdict ' + r.kind;
+  const head = r.kind === 'exact' ? '✓ ' + r.text : r.text;
+  v.innerHTML = esc(head) + `<small>${r.frames} frames, ${r.missing_frames} unanswered, ${r.latency ?? '–'} s per answer (median)</small>`;
+  if (r.best) {            // the matched sequence, sign by sign
+    const q = S.kit.sequences.find(q => q.id === r.best.id);
+    const marks = {match:'✓', wrong:'✗', missing:'✗', extra:'+'};
+    $('#seen').innerHTML = r.best.ops.map((o, n) => { const s = byId(o.want || o.got); return (n ? '<span class="arrow">→</span>' : '') + cell(s, o.pos || '+', o.op, marks[o.op]); }).join('');
+    $('#seenNote').textContent = q ? '· ' + q.name : '';
+  } else renderSeen(r.seen, '');
+}
+
+// ---------------------------------------------------------------- camera
+async function camera() {
+  if (S.cam) return true;
+  try { S.cam = await navigator.mediaDevices.getUserMedia({video:{width:960, height:720}, audio:false}); $('#cam').srcObject = S.cam; await new Promise(r => $('#cam').onloadedmetadata = r); $('#stat').textContent = 'camera on'; return true; }
+  catch (e) { $('#err').textContent = 'Camera: ' + e.message; return false; }
+}
+function snap(w) {
+  const v = $('#cam'), c = document.createElement('canvas');
+  c.width = w; c.height = Math.round(w * (v.videoHeight || 3) / (v.videoWidth || 4));
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8);
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function countdown(what) {
+  for (let n = 3; n > 0; n--) { $('#over').innerHTML = `<div><div class="what">${esc(what)}</div><div class="big">${n}</div></div>`; await sleep(800); }
+  $('#over').innerHTML = '';
+}
+async function teach(name) {
+  if (!S.kit) { $('#err').textContent = 'Make a kit first.'; return; }
+  if (!name) { $('#err').textContent = 'Name the pose first.'; return; }
+  if (!await camera()) return;
+  $('#err').textContent = '';
+  await countdown(name);
+  S.kit = await api(`/api/signs/kits/${S.kit.id}/signs`, {name, image:snap(640)});
+  renderKit();
+}
+
+// ---------------------------------------------------------------- perform
+async function start(target) {
+  if (S.busy || !S.kit) return;
+  if (!await camera()) return;
+  $('#err').textContent = '';
+  try {
+    const st = await api('/api/signs/sessions', {kit:S.kit.id, mode:target ? 'follow' : 'identify', target});
+    S.sid = st.id; S.i = 0; S.busy = true; S.target = target; S.t0 = performance.now();
+  } catch (e) { $('#err').textContent = e.message; return; }
+  $('#go').disabled = true; $('#stop').disabled = false;
+  $('#verdict').className = 'verdict'; $('#verdict').textContent = target ? 'Watching: ' + S.kit.sequences.find(q => q.id === target).name : 'Watching…';
+  renderSeen([], '');
+  const gap = 1000 / (+$('#fps').value);
+  S.tick = setInterval(() => {
+    const body = JSON.stringify({i:S.i++, t:(performance.now() - S.t0) / 1000, image:snap(512)});
+    fetch(`/api/signs/sessions/${S.sid}/frame`, {method:'POST', headers:{'Content-Type':'application/json'}, body}).catch(() => {});
+  }, gap);
+  S.poll = setInterval(poll, 250);
+  S.deadline = setTimeout(finish, 45000);                 // hard stop
+}
+async function poll() {
+  if (!S.sid) return;
+  let st; try { st = await api('/api/signs/sessions/' + S.sid); } catch (e) { return; }
+  if (!S.busy) return;
+  const nm = st.now && st.now.top !== 'none' && byId(st.now.top);
+  $('#nowlab').hidden = !nm; if (nm) $('#nowlab').textContent = nm.name + ' ' + Math.round(st.now.conf * 100) + '%';
+  renderSeen(st.seen, '');
+  renderSeqs(st.candidates);
+  $('#stat').textContent = `LIVE · ${st.answered}/${st.frames} frames answered · ${st.latency ?? '–'} s per answer · ${st.dropped} dropped · ${st.errors} failed · ${st.seconds} s`;
+  if (st.fatal) { $('#err').textContent = st.fatal; return finish(); }
+  const lead = st.candidates[0];
+  if (st.should_end || (S.target && lead && lead.covered >= lead.length && st.idle > 0.6)) finish();
+}
+async function finish() {
+  if (!S.busy) return;
+  S.busy = false;
+  clearInterval(S.tick); clearInterval(S.poll); clearTimeout(S.deadline);
+  $('#nowlab').hidden = true; $('#stop').disabled = true;
+  $('#verdict').textContent = 'Deciding…';
+  try { const st = await api(`/api/signs/sessions/${S.sid}/finish`, {}); renderResult(st.result); renderSeqs(null); }
+  catch (e) { $('#err').textContent = e.message; }
+  S.sid = null; $('#go').disabled = false;
+}
+
+// ---------------------------------------------------------------- wiring
+$('#kit').onchange = e => loadKit(e.target.value);
+$('#showphoto').onchange = renderKit;
+$('#newkit').onclick = async () => {
+  const p = $('#preset').value, body = p.startsWith('card:') ? {from_card:p.slice(5)} : {title:$('#title').value, preset:p || undefined};
+  try { const k = await api('/api/signs/kits', body); $('#title').value = ''; await loadStatus(k.id); } catch (e) { $('#err').textContent = e.message; }
+};
+$('#teach').onclick = async () => { await teach($('#signname').value.trim()); $('#signname').value = ''; };
+$('#teachall').onclick = async () => {
+  for (;;) {
+    const k = S.kit, next = (k.preset ? k.preset.signs : []).find(n => !k.signs.some(s => s.name.toLowerCase() === n.toLowerCase()));
+    if (!next) break;
+    await teach(next); await sleep(700);
+  }
+};
+$('#signs').onclick = async e => {
+  const del = e.target.dataset.del, todo = e.target.closest('[data-todo]'), pickd = e.target.closest('.pick');
+  if (del) { S.kit = await api(`/api/signs/kits/${S.kit.id}/signs/${del}/delete`, {}); S.draft = []; renderKit(); }
+  else if (todo) teach(todo.dataset.todo);
+  else if (pickd) { S.draft.push(pickd.dataset.id); renderDraft(); }
+};
+$('#seqclear').onclick = () => { S.draft = []; renderDraft(); };
+$('#seqsave').onclick = async () => {
+  try { S.kit = await api(`/api/signs/kits/${S.kit.id}/sequences`, {name:$('#seqname').value.trim() || 'Sequence ' + (S.kit.sequences.length + 1), signs:S.draft}); $('#seqname').value = ''; S.draft = []; renderKit(); }
+  catch (e) { $('#err').textContent = e.message; }
+};
+$('#seqs').onclick = async e => {
+  const d = e.target.dataset;
+  if (d.show) window.open(`/print/signs/${S.kit.id}/${d.show}`);
+  else if (d.practice) start(d.practice);
+  else if (d.qdel) { S.kit = await api(`/api/signs/kits/${S.kit.id}/sequences/${d.qdel}/delete`, {}); renderKit(); }
+};
+$('#go').onclick = () => start(null);
+$('#stop').onclick = finish;
+$('#clip').onchange = async e => {
+  const f = e.target.files[0]; if (!f || !S.kit) return;
+  const fd = new FormData(); fd.append('clip', f); fd.append('fps', $('#fps').value);
+  $('#verdict').className = 'verdict'; $('#verdict').textContent = 'Scoring the clip…';
+  try { const st = await api(`/api/signs/kits/${S.kit.id}/clip`, fd, true); renderResult(st.result); } catch (err) { $('#err').textContent = err.message; }
+  e.target.value = '';
+};
+document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (e.code === 'Space') { e.preventDefault(); S.busy ? finish() : start(null); } });
+loadStatus();
+</script>
+</body>
+</html>

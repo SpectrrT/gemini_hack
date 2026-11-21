@@ -28,3 +28,6 @@ UNSURE_MASS = 0.9         # between this and MIN_MASS the verdict is "not sure" 
 # Per-panel thresholds from the card's own teaching clip (tournament change no. 2; NOT yet measured).
 OWN_SCORE_FRACTION = 0.5
 OWN_SCORE_CLAMP = (0.9, 1.6)
+
+# Fast sequences (wordless/signs.py): one still per question, several a second, answered in parallel.
+SIGNS_MIN_GAP_S = float(os.environ.get("WORDLESS_SIGNS_GAP", 0.0))   # no spacing between questions

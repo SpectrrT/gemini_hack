@@ -17,10 +17,12 @@ from flask import Flask, abort, jsonify, render_template_string, request, send_f
 
 from wordless import baseline, card as cards
 from wordless import config, evalrun, follow, gemini, table, teach, video
+from wordless.signs_routes import bp as signs_bp
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
 WEB = config.ROOT / "web"
+app.register_blueprint(signs_bp)      # fast sequences: /signs
 jobs = {}
 tally_lock = threading.Lock()
 TALLY = config.RUNS / "tally.json"

@@ -68,3 +68,14 @@ def find_video(name):
         if p.exists():
             return p
     return None
+
+
+def frames(src, outdir, fps=4.0, height=360):
+    """Stills from `src` at `fps`, named 00000.jpg, 00001.jpg, ... Returns the list of paths."""
+    outdir = Path(outdir)
+    if outdir.exists():
+        shutil.rmtree(outdir)
+    outdir.mkdir(parents=True)
+    _run(["-i", str(src), "-an", "-vf", f"fps={fps},scale=-2:{height}", "-pix_fmt", "yuvj420p", "-q:v", "4",
+          "-start_number", "0", str(outdir / "%05d.jpg")])
+    return sorted(outdir.glob("*.jpg"))

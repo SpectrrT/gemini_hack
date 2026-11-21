@@ -4,9 +4,25 @@
     {
       "name": "wordless-replay",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["server.py"],
+      "runtimeArgs": [
+        "server.py"
+      ],
       "port": 5119,
-      "env": {"WORDLESS_TAPE": "replay"}
+      "env": {
+        "WORDLESS_TAPE": "replay"
+      }
+    },
+    {
+      "name": "wordless-live",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "server.py"
+      ],
+      "port": 5120,
+      "env": {
+        "WORDLESS_TAPE": "auto",
+        "PORT": "5120"
+      }
     }
   ]
 }
