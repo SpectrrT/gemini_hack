@@ -9,6 +9,23 @@ which step never happened, which was something else, and what was extra.
 
 Gemini 4 NYC Hackathon, Nov 21 2026 (Element 119).
 
+## Who it is for
+
+One person: a trainer whose new hire does not share their language, at a prep station, a packing bench or a
+workshop. The trainer films the routine once. The new hire gets a card with no words on it and can check
+themselves against it. Wordless is a tested instruction sheet, not a coach: it says which step did not
+happen, not how well a step was done.
+
+## 3-minute demo flow
+
+1. One person shows a short routine to the camera: any steps, any speed, nothing typed.
+2. The card builds itself on screen. Carbon names the steps, the Decisions API finds each step's clearest
+   frame, the image model draws the panels.
+3. A second person follows the card and skips a step of their own choosing, without telling us which.
+4. The verdict names the missing step. Hydrogen's second vote on the same run lands under it.
+5. Proof tab: the 16-recording eval, including where the first version failed and what changed, and the live
+   trials logged at the table, wrong verdicts included.
+
 ## State of the evidence
 
 Full tables, per recording, in [docs/EVAL.md](docs/EVAL.md). Numbers below can be re-computed without the API:
