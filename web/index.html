@@ -75,6 +75,25 @@
   .pace span.short { background:#fdecea; }
   #ppace { height:auto; min-height:0; border:0; background:none; }
   ul.check { margin:0; padding-left:18px; } ul.check li { margin:5px 0; }
+
+  /* demo shell: status line, run clock, baseline beside ours, keep-the-card, recorded-run banner */
+  #statusline { flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; font-size:14px; font-variant-numeric:tabular-nums; margin:-2px 0 -4px; }
+  #statusline b { font-weight:700; } #statusline .k { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:.6px; margin-right:4px; }
+  input[type=number] { font:inherit; padding:7px 6px; border:2px solid var(--line); background:#fff; width:68px; }
+  .clock { font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:1px; line-height:1; }
+  .clock.near { color:var(--amber); } .clock.over { color:var(--red); }
+  .vs { display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(0, 1fr) auto; gap:14px; margin-top:14px; align-items:stretch; }
+  .vs > div { display:flex; flex-direction:column; } .vs .verdict { margin-top:0; flex:1; }
+  .vs .lab { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; margin-bottom:4px; }
+  .verdict .why { font-size:15px; font-weight:700; background:var(--ink); color:#fff; padding:5px 9px; margin:-4px -6px 9px; }
+  .base { border:3px solid var(--line); background:#fff; padding:14px 16px; font-size:19px; font-weight:700; flex:1; min-height:66px; }
+  .base small { display:block; font-size:13px; font-weight:500; color:var(--mute); margin-top:4px; }
+  .base.wait { color:var(--mute); } .base.na { background:var(--soft); font-size:15px; font-weight:600; }
+  .keepbox { border:3px solid var(--line); background:#fff; padding:8px; text-align:center; font-size:12px; flex:1; max-width:170px; }
+  .keepbox img { width:132px; height:132px; display:block; margin:0 auto 4px; } .keepbox a { color:var(--ink); word-break:break-all; }
+  .recbanner { display:none; border:3px solid var(--line); background:#fff3c4; padding:9px 14px; margin-bottom:12px; font-size:18px; font-weight:800; }
+  .recbanner small { display:block; font-weight:500; font-size:13px; color:var(--mute); }
+  @media (max-width:1100px) { .vs { grid-template-columns:1fr; } .keepbox { max-width:none; } }
 </style>
 </head>
 <body>
@@ -88,6 +107,13 @@
     <button data-tab="follow" class="on">2 · Follow</button>
     <button data-tab="proof">3 · Proof</button>
   </nav>
+  <div id="statusline" aria-live="off">
+    <span id="stMode" class="pill">…</span>
+    <span><span class="k">input</span><b id="stInput">—</b></span>
+    <span><span class="k">questions asked</span><b id="stQ">0</b></span>
+    <span><span class="k">last call</span><b id="stLat">—</b></span>
+    <span class="note" id="stNote">R: recorded run</span>
+  </div>
 </header>
 <main>
 
@@ -210,6 +236,12 @@
           <button class="act" id="fdone" disabled>Done (space)</button>
           <label class="note" title="Per-panel cut-offs from the card's own teaching clip. Needs a self-test; not yet measured."><input type="checkbox" id="fown"> per-panel cut-offs</label>
         </div>
+        <div class="row">
+          <span class="clock" id="fclock" title="time since Start">00:00</span>
+          <label class="small" for="fdeadline">deadline</label>
+          <input type="number" id="fdeadline" min="0" max="900" step="5" value="90" title="The session finishes itself after this many seconds. 0 = no deadline.">
+          <span class="note">s · finishes itself, verdict from what was seen</span>
+        </div>
         <video id="fvid" muted playsinline></video>
         <div class="pace" id="pace" title="pace light: hold each step until the bar fills (8 s)"><i></i></div>
         <div class="timeline" id="tl"></div>
@@ -228,8 +260,16 @@
       </div>
     </div>
     <div>
+      <div class="recbanner" id="recbanner"></div>
       <div class="card" id="fcardGrid"></div>
-      <div class="verdict" id="verdict">—<small>The verdict is computed from every buffered window when the follower is done. Panels turning green before that are display only.</small></div>
+      <div class="vs">
+        <div><span class="lab">Wordless card · watching during the task</span>
+          <div class="verdict" id="verdict">—<small>The verdict is computed from every buffered window when the follower is done. Panels turning green before that are display only.</small></div></div>
+        <div><span class="lab">Baseline · one Hydrogen call on the whole clip</span>
+          <div class="base wait" id="base">—<small>Starts with the run on a file recording, so it is ready by the verdict.</small></div></div>
+        <div id="keep" style="display:none"><span class="lab">Keep the card</span>
+          <div class="keepbox"><img id="keepqr" alt="QR code that opens the printable card">scan, or <a id="keepurl" target="_blank"></a></div></div>
+      </div>
       <div class="scope">Checks that each step <b>happened</b>, not how well it was done. Three answers: seen · never happened · not sure.</div>
     </div>
   </div>
@@ -316,6 +356,24 @@ function paintPanels(el, panels, now, verdict) {
   });
 }
 
+// ---------------------------------------------------------------- status line (always visible)
+function paintStatus(mode, input, q, lat) {
+  const m = $('#stMode'); m.textContent = mode; m.className = 'pill ' + (mode === 'LIVE' ? 'live' : 'replay');
+  $('#stInput').textContent = input; $('#stQ').textContent = q;
+  $('#stLat').textContent = lat === null || lat === undefined ? '—' : (+lat).toFixed(2) + ' s' + (mode === 'REPLAY' ? ' (as recorded)' : '');
+}
+function paintShell(sh) { if (sh) paintStatus(sh.mode, sh.input + (sh.recorded ? ' · recorded run' : ''), sh.questions, sh.last_call_s); }
+function idleStatus() {                                   // nothing running: what the selected source would be
+  if (!STATUS) return;
+  const src = $('#fsrc').value || 'live', info = CARD && CARD.recordings.find(r => 'rec:' + r.id === src);
+  const replay = STATUS.tape_mode === 'replay' || (info && info.on_tape && STATUS.tape_mode !== 'live');
+  paintStatus(replay ? 'REPLAY' : 'LIVE', src === 'live' ? 'live camera' + (STATUS.tape_mode === 'replay' ? ' (off: server in replay mode)' : '') : 'recording ' + src.slice(4), 0, null);
+}
+const mmss = t => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+const deadlineS = () => Math.max(0, +$('#fdeadline').value || 0);
+try { const d = localStorage.getItem('wordless.deadline'); if (d !== null && d !== '') $('#fdeadline').value = d; } catch (e) {}
+$('#fdeadline').onchange = () => { try { localStorage.setItem('wordless.deadline', $('#fdeadline').value); } catch (e) {} };
+
 async function loadCard(id) {
   CARD = await api('/api/cards/' + id);
   renderCard($('#fcardGrid'), CARD);
@@ -323,7 +381,7 @@ async function loadCard(id) {
   src.add(new Option('Live camera (one question every 2 s)', 'live'));
   CARD.recordings.forEach(r => src.add(new Option(`Recording ${r.id}${r.kind === 'still' ? ' (saved table session)' : ''}${r.video ? '' : ' · no video file'}${r.on_tape ? '' : ' · not scored yet (live calls)'}`, 'rec:' + r.id)));
   if (STATUS.tape_mode === 'replay' && CARD.recordings.length) src.selectedIndex = Math.min(2, CARD.recordings.length);
-  src.onchange = () => { $('#fspeed').style.display = src.value === 'live' ? 'none' : ''; };
+  src.onchange = () => { $('#fspeed').style.display = src.value === 'live' ? 'none' : ''; if (!F.sid) idleStatus(); };
   src.onchange();
   $('#sealStep').innerHTML = CARD.steps.map((s, k) => `<option value="${s.id}">panel ${k + 1}</option>`).join('');
   $('#lg').innerHTML = CARD.steps.map((s, k) => `<span><b style="background:${COLORS[k % COLORS.length]}"></b>${k + 1}</span>`).join('') + '<span><b style="background:#ddd"></b>none</span>';
@@ -333,14 +391,46 @@ async function loadCard(id) {
 // ---------------------------------------------------------------- follow
 let F = {sid:null, poll:null, cam:null, tick:null, i:0, prev:null, live:false, lastNow:null, nowSince:0};
 function resetFollow() {
-  clearInterval(F.poll); clearInterval(F.tick);
+  clearInterval(F.poll); clearInterval(F.tick); clearInterval(F.clock); clearInterval(F.bpoll);
   if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
   F = {sid:null, poll:null, cam:null, tick:null, i:0, prev:null, live:false, lastNow:null, nowSince:0};
   const v = $('#fvid'); v.pause(); v.srcObject = null; v.removeAttribute('src'); v.load();
   $('#verdict').className = 'verdict'; $('#verdict').innerHTML = '—<small>The verdict is computed from every buffered window when the follower is done. Panels turning green before that are display only.</small>';
   $('#tl').innerHTML = ''; $('#fstat').textContent = ''; $('#ferr').textContent = ''; $('#sealed').style.display = 'none';
   $('#fstart').disabled = false; $('#fdone').disabled = true; $('#pace').firstElementChild.style.width = '0';
+  $('#fclock').textContent = '00:00'; $('#fclock').className = 'clock'; $('#fdeadline').disabled = false;
+  $('#recbanner').style.display = 'none'; $('#keep').style.display = 'none';
+  $('#base').className = 'base wait'; $('#base').innerHTML = '—<small>Starts with the run on a file recording, so it is ready by the verdict.</small>';
   if (CARD) paintPanels($('#fcardGrid'), {}, null, null);
+  idleStatus();
+}
+// the run clock; also the page's own guard: if the server has not stopped the run shortly after the deadline, stop it here
+function startClock(s) {
+  F.t0 = Date.now(); F.deadline = s.shell ? s.shell.deadline_s : deadlineS(); F.last = s;
+  $('#fdeadline').disabled = true;
+  const tick = () => {
+    const t = (Date.now() - F.t0) / 1000, c = $('#fclock');
+    c.textContent = mmss(t) + (F.deadline ? ' / ' + mmss(F.deadline) : '');
+    c.className = 'clock' + (F.deadline && t >= F.deadline ? ' over' : F.deadline && t >= F.deadline - 15 ? ' near' : '');
+    if (F.deadline && t >= F.deadline + 1.5 && !F.forcing) { F.forcing = true; pageDeadline(); }
+  };
+  tick(); F.clock = setInterval(tick, 200);
+}
+async function pageDeadline() {
+  const sid = F.sid, ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 3000);
+  try {
+    const r = await fetch(`/api/follow/${sid}/deadline`, {method:'POST', signal: ctl.signal});
+    if (!r.ok) throw 0;
+    const s = await r.json();
+    if (F.sid === sid) paintFollow(s);
+  } catch (e) {                                           // the server itself is not answering: say so, do not hang
+    if (F.sid !== sid || F.shown) return;
+    clearInterval(F.poll); clearInterval(F.tick); clearInterval(F.clock); F.shown = true;
+    if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
+    const el = $('#verdict'); el.className = 'verdict unsure';
+    el.innerHTML = `<div class="why">Deadline reached (${F.deadline} s). The server did not answer in time.</div>No verdict<small>The panels show what had been seen when the page last heard from the server. Press R for a recorded run.</small>`;
+    $('#fdone').disabled = true; $('#fstart').disabled = false; $('#fdeadline').disabled = false;
+  } finally { clearTimeout(timer); }
 }
 function grab(video) {
   const c = document.createElement('canvas'); c.width = 640; c.height = Math.round(640 * (video.videoHeight || 9) / (video.videoWidth || 16));
@@ -352,10 +442,12 @@ $('#fstart').onclick = async () => {
   $('#fstart').disabled = true;                          // before any await: a second click must not start a second session
   const src = $('#fsrc').value, own = $('#fown').checked, v = $('#fvid');
   try {
+    let s;
     if (src === 'live') {
-      const s = await api('/api/follow/live', {card: CARD.id, own_thresholds: own});
+      if (STATUS.tape_mode === 'replay') throw new Error('The server is in replay mode (no API calls). Restart with WORDLESS_TAPE=auto and a funded key for live checks.');
       F.cam = await navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}, audio:false});
-      v.srcObject = F.cam; await v.play();
+      v.srcObject = F.cam; await v.play();               // camera first: the clock and the deadline start with the session
+      s = await api('/api/follow/live', {card: CARD.id, own_thresholds: own, deadline_s: deadlineS()});
       F.sid = s.id; F.live = true;
       const post = (body, again) => fetch(`/api/follow/${F.sid}/frame`, {method:'POST', headers:{'Content-Type':'application/json'}, body})
         .then(r => { if (!r.ok) throw 0; }).catch(() => { if (again) post(body, false); else F.lost = (F.lost || 0) + 1; });
@@ -367,14 +459,41 @@ $('#fstart').onclick = async () => {
     } else {
       const rec = src.slice(4), speed = +$('#fspeed').value;
       const info = CARD.recordings.find(r => r.id === rec);
-      const s = await api('/api/follow/replay', {card: CARD.id, recording: rec, speed, own_thresholds: own});
+      s = await api('/api/follow/replay', {card: CARD.id, recording: rec, speed, own_thresholds: own, deadline_s: deadlineS()});
       F.sid = s.id;
       if (info && info.video) { v.src = `/video/${rec}.mp4`; v.playbackRate = Math.min(16, speed); v.play().catch(() => {}); }
     }
-  } catch (e) { $('#ferr').textContent = e.message; $('#fstart').disabled = false; return; }
-  $('#fdone').disabled = !F.live;                        // a replay finishes by itself
-  F.poll = setInterval(pollFollow, 400);
+    beginRun(s);
+  } catch (e) {
+    if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
+    $('#ferr').textContent = e.message; $('#fstart').disabled = false;
+  }
 };
+function beginRun(s) {
+  $('#fdone').disabled = !F.live;                        // a replay finishes by itself
+  startClock(s); paintFollow(s);
+  if (!F.shown) F.poll = setInterval(pollFollow, 400);
+}
+// R: the announced fallback. Jumps to a recorded run, fed from saved answers only (works with the network off).
+async function recordedRun() {
+  showTab('follow');
+  if (!CARD) return;
+  const prev = F.sid, unfinished = prev && F.live && !F.shown;
+  if (unfinished) fetch(`/api/follow/${prev}/deadline`, {method:'POST'}).catch(() => {});   // stop and save the run that was cut short
+  const src = $('#fsrc').value;
+  resetFollow();
+  $('#fstart').disabled = true;
+  try {
+    const s = await api('/api/follow/recorded', {card: CARD.id, prefer: src.startsWith('rec:') ? src.slice(4) : null,
+      exclude: unfinished ? prev : null, speed: +$('#fspeed').value, deadline_s: deadlineS()});
+    F.sid = s.id;
+    const b = $('#recbanner'); b.style.display = 'block';
+    b.innerHTML = esc(s.shell.recorded) + '<small>not happening now · played back from saved answers, no network needed</small>';
+    const info = CARD.recordings.find(r => r.id === s.recording), v = $('#fvid');
+    if (info && info.video) { v.src = `/video/${s.recording}.mp4`; v.playbackRate = Math.min(16, +$('#fspeed').value); v.play().catch(() => {}); }
+    beginRun(s);
+  } catch (e) { $('#ferr').textContent = e.message; $('#fstart').disabled = false; }
+}
 async function pollFollow() {
   if (!F.sid) return;
   let s; try { s = await api('/api/follow/' + F.sid); } catch (e) { return; }
@@ -384,19 +503,42 @@ function paintFollow(s) {
   paintPanels($('#fcardGrid'), s.panels, s.now, s.verdict);
   const ids = CARD.steps.map(x => x.id);
   $('#tl').innerHTML = s.timeline.map(([i, step, conf]) => `<i style="background:${step ? COLORS[ids.indexOf(step) % COLORS.length] : '#ddd'};opacity:${step ? Math.max(.35, conf) : 1}" title="window ${i}: ${step ? 'panel ' + (ids.indexOf(step) + 1) : 'none'} (${conf})"></i>`).join('');
-  $('#fstat').textContent = `${s.windows}${s.total ? ' / ' + s.total : ''} windows labelled` + (s.waiting ? ` · ${s.waiting} in flight` : '') + (s.errors ? ` · ${s.errors} failed` : '') + (F.lost ? ` · ${F.lost} never reached the server` : '');
-  if (s.fatal) $('#ferr').textContent = s.fatal;
+  $('#fstat').textContent = `${s.windows}${s.total ? ' / ' + s.total : ''} windows labelled` + (s.waiting ? ` · ${s.waiting} in flight` : '') + (s.errors ? ` · ${s.errors} ${s.shell && s.shell.deadline_hit && !F.live ? 'not reached before the deadline' : 'failed'}` : '') + (F.lost ? ` · ${F.lost} never reached the server` : '');
+  if (s.fatal && !(s.shell && s.shell.deadline_hit)) $('#ferr').textContent = s.fatal;
+  F.last = s; paintShell(s.shell); paintBase(s.shell);
   if (F.live) {                                           // pace light: how long the current panel has been held
     if (s.now !== F.lastNow) { F.lastNow = s.now; F.nowSince = Date.now(); }
     $('#pace').firstElementChild.style.width = s.now ? Math.min(100, (Date.now() - F.nowSince) / 80) + '%' : '0';
   }
   if (s.done && s.verdict) showVerdict(s);
 }
+function paintBase(sh) {
+  if (!sh) return;
+  const b = sh.baseline, el = $('#base');
+  el.className = 'base' + (b.state === 'done' ? '' : b.state === 'running' ? ' wait' : ' na');
+  el.innerHTML = b.state === 'done'
+    ? esc(b.text.charAt(0).toUpperCase() + b.text.slice(1)) + `<small>one call after the whole clip${b.lat ? ' · the call took ' + b.lat + ' s' : ''} · no "not sure" answer, no answer during the task</small>`
+    : esc(b.text);
+}
 function showVerdict(s) {
-  clearInterval(F.poll); clearInterval(F.tick);
-  const v = s.verdict, el = $('#verdict');
+  clearInterval(F.poll); clearInterval(F.tick); clearInterval(F.clock); clearInterval(F.bpoll); F.shown = true;
+  $('#fdeadline').disabled = false;
+  const v = s.verdict, el = $('#verdict'), sh = s.shell;
+  if (sh && sh.baseline.state === 'running') {            // ours is in; keep asking until the baseline lands
+    const sid = s.id;
+    F.bpoll = setInterval(async () => {
+      if (F.sid !== sid) return clearInterval(F.bpoll);
+      try { const x = await api('/api/follow/' + sid); paintBase(x.shell); if (x.shell.baseline.state !== 'running') clearInterval(F.bpoll); } catch (e) {}
+    }, 1000);
+  }
+  if (sh) {
+    $('#fclock').textContent = mmss(sh.stopped_at || sh.elapsed) + (sh.deadline_s ? ' / ' + mmss(sh.deadline_s) : '');
+    $('#keep').style.display = ''; $('#keepqr').src = `/qr/card/${CARD.id}.svg?u=${encodeURIComponent(sh.card_url)}`;
+    $('#keepurl').href = '/print/card/' + CARD.id; $('#keepurl').textContent = sh.card_url.replace(/^https?:\/\//, '');
+  }
   el.className = 'verdict ' + (v.clean ? 'clean' : v.skipped.length || v.order_violations.length ? 'bad' : 'unsure');
-  el.innerHTML = v.text.charAt(0).toUpperCase() + v.text.slice(1) + `<small>${v.windows} windows · rule: best run of a panel must sum to its cut-off (${STATUS.rule.min_mass}); ${STATUS.rule.unsure_mass}–${STATUS.rule.min_mass} is "not sure"${v.missing_windows.length ? ' · ' + v.missing_windows.length + ' windows never answered' : ''}</small>`;
+  el.innerHTML = (sh && sh.deadline_hit ? `<div class="why">Deadline reached (${sh.deadline_s} s): the session finished itself with ${v.windows}${s.total ? ' of ' + s.total : ''} windows answered.</div>` : '')
+    + v.text.charAt(0).toUpperCase() + v.text.slice(1) + `<small>${v.windows} windows · rule: best run of a panel must sum to its cut-off (${STATUS.rule.min_mass}); ${STATUS.rule.unsure_mass}–${STATUS.rule.min_mass} is "not sure"${v.missing_windows.length ? ' · ' + v.missing_windows.length + ' windows never answered' : ''}</small>`;
   $('#fdone').disabled = true; $('#fstart').disabled = false;
   if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
   if (F.live) {                                          // sealed cards are for live trials only
@@ -417,6 +559,7 @@ async function finishFollow() {
   paintFollow(s);
 }
 $('#fdone').onclick = finishFollow;
+document.addEventListener('keydown', e => { if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); recordedRun(); } });
 document.addEventListener('keydown', e => { if (e.code === 'Space' && $('#follow').classList.contains('on') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); finishFollow(); } });
 $$('#sealed button').forEach(b => b.onclick = async () => {
   try {
