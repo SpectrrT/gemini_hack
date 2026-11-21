@@ -2,8 +2,13 @@
 
 **Do it once on camera. Your demonstration becomes the manual and the test.**
 
-Film a hands-on routine once. Gemini turns it into a picture card with no words, drawn from the real
-keyframes. The same card then watches the next person and names the step they skipped.
+Two ways in, one idea: show it once, and the pictures both teach the next person and check them.
+
+- **Routines** (`/`): film a hands-on routine once. Gemini turns it into a picture card with no words, drawn
+  from the real keyframes. The same card then watches the next person and names the step they skipped.
+- **Sequences** (`/signs`): show the camera a few poses, one photo each, and name sequences of them. The camera
+  then names which fast sequence someone performed, or says which sign was wrong, missing or extra. Nothing in
+  it is specific to one domain: hand signals, finger counts, hand-washing positions, positions of a tool.
 
 Gemini 4 NYC Hackathon, Nov 21 2026 (Element 119).
 
@@ -63,6 +68,32 @@ Open http://localhost:5119.
 
 Videos play next to the card when the recordings are in `data/` as `<id>.mp4`; the replay works without them.
 
+On the Follow tab the status line shows LIVE or REPLAY, the input, the number of questions and the last call's
+seconds. A run has a clock and a hard deadline (default 90 s): a stalled call cannot hang the page. For a file
+recording the one-call baseline runs beside ours and both verdicts are shown. `R` plays a labelled recorded
+run with the network off. After a verdict, "Keep the card" shows a QR code to the printable card; a phone
+needs `WORDLESS_PUBLIC_URL` (default: this machine's LAN address).
+
+### Sequences (needs a key and a camera)
+
+```bash
+.venv/bin/python server.py
+```
+
+Open http://localhost:5119/signs.
+
+1. Pick a preset (finger counts is the easiest first try) or name a blank kit, and press New kit.
+2. "Teach all remaining": each pose gets a 3 s countdown and one photo. A line drawing of each pose is made
+   in the background.
+3. Name a sequence, click poses in order, save. Presets add their sequences once their poses are taught.
+4. Start, perform a sequence, pause. The strip fills in as poses are recognised and the verdict names the
+   sequence. "Check someone doing it" watches one chosen sequence and marks each sign; "Show the steps" opens
+   the printable wordless strip.
+
+A routine card can also be opened as a kit ("from routine: ..." in the preset list), which checks it frame by
+frame instead of in 2 s windows. Camera previews are mirrored on screen only; frames sent to the models are not
+flipped.
+
 ## Tests
 
 ```bash
@@ -70,6 +101,10 @@ Videos play next to the card when the recordings are in `data/` as `<id>.mp4`; t
 ```
 
 - `test_tracker.py`: the verdict rule.
+- `test_whole_clip_review.py`: the review rule that combines the card with the one whole-clip call.
+- `test_signs.py`: the sequence decoder, and kits, sessions and the HTTP path against the fake.
+- `test_shell.py`: clock, deadline, status line, baseline beside ours, QR card, recorded-run playback.
+- `test_managed.py`: the blind reader against a fake.
 - `test_replay_tomato.py`: the recorded real answers still give the reported numbers.
 - `test_table_prep.py`: clip recording, print pages and the table gate, against the fake.
 - `test_live_path_against_fake.py`: teach, follow from files, follow from stills over HTTP, back-fill,
@@ -125,25 +160,56 @@ count as development data, not as a test.
 ## Layout
 
 ```
-wordless/gemini.py    REST client + tape (record / replay of every answer)
-wordless/teach.py     teaching clip -> card
-wordless/checker.py   the questions put to the Decisions API
-wordless/tracker.py   presence and order rule, verdict
-wordless/follow.py    live and replay sessions
-wordless/baseline.py  one Hydrogen call on the whole clip
-wordless/evalrun.py   eval on labelled recordings
-server.py, web/       Flask server and the single-page UI
-fixtures/tomato/      answers recorded against the real API
-tests/                tests and the fake API
-wordless/table.py     table prep: test clips with an answer key, the table gate
+wordless/gemini.py         REST client + tape (record / replay of every answer)
+wordless/teach.py          teaching clip -> card
+wordless/checker.py        the questions put to the Decisions API
+wordless/tracker.py        presence and order rule, verdict
+wordless/follow.py         live and replay sessions; whole-clip review of the verdict
+wordless/baseline.py       one Hydrogen call on the whole clip
+wordless/decode.py         sequences: frame answers -> signs -> which known sequence
+wordless/signs.py          sequences: kits, the per-frame question, sessions, clip scoring
+wordless/signs_routes.py   routes for /signs
+wordless/managed.py        blind reader on Managed Agents (see docs/MANAGED.md)
+wordless/evalrun.py        eval on labelled recordings
+wordless/table.py          table prep: test clips with an answer key, the table gate
+server.py                  Flask server, demo shell (clock, deadline, baseline, QR, recorded runs)
+web/                       index.html (Routines), signs.html (Sequences), wordless.css, fonts, logo
+scripts/eval_wide.py       the 16-recording eval; eval_rules.py re-scores verdict rules without the API
+scripts/fetch_captaincook.py   downloads the public recordings and labels
+fixtures/tomato/           answers recorded against the real API
+fixtures/eval_wide/        per-recording answers behind docs/EVAL.md
+fixtures/sequence_presets.json   example kits for /signs
+docs/                      EVAL.md, MANAGED.md, SUBMISSION.md, VIDEO.md, LICENCES.md, ui/ screenshots
+tests/                     tests and the fake API
 ```
+
+## Managed Agents (experimental, not on the demo path)
+
+`python scripts/blind_read.py <card_id>` starts one managed agent per panel. Each sees only the panel image,
+never the video or the step names, and writes what the panel tells a person to do; the Decisions API then
+scores that sentence against the true step. On the tomato card it scored 7, 7 and 5 of 9 panels over three
+runs, at 2.5 to 6 minutes a run: too noisy and too slow to rely on. Details in [docs/MANAGED.md](docs/MANAGED.md).
 
 ## Known gaps
 
-- Kit steps of 4 to 5 s give two or three windows; a correct step then scores close to the 1.6 cut-off.
-  Hold each step about 8 s (the pace bar under the video fills in 8 s) and test per-panel cut-offs in G2.
-- The teaching locate step was weak on look-alike steps: herbs scored 0.56 in the tomato teaching clip.
-- Live sends one question per 2 s (the measured protocol). Overlapping windows at 2 to 3 calls a second would
-  give more evidence per step but need re-tuned cut-offs; not built.
+- Neither mode has been run with a person at a camera at a table yet. All routine numbers come from recorded
+  footage; sequences have no accuracy number.
+- The whole-clip review needs the whole clip, so the final routine verdict arrives some seconds after the
+  person stops (capped at 45 s; if the review does not answer, the card's own verdict is shown and says so).
+- The review rule was chosen after seeing all 16 eval recordings; it has not been confirmed on fresh ones.
+- Look-alike steps (several "tip a small container" steps) are what the card confuses. The review hides this
+  in the verdict; the live panel-by-panel view can still light the wrong look-alike panel.
+- Routine steps of 4 to 5 s give two or three windows; hold each step about 8 s, or open the card as a
+  sequence kit for the frame-by-frame path (not yet measured on recordings).
+- Sequences: poses must be holdable for about half a second and look different from each other. Sub-second
+  flicks and poses that differ only in small finger detail are expected to fail; a repeated pose needs a pause.
+- Order errors in routines are unreliable and not claimed.
 - The end-state second vote exists as a question (`checker.end_state`) but is not wired into the verdict.
-- The text-only column is not computed for live table trials, only for file recordings.
+- Preset sequences are examples written from memory; check them before relying on them.
+
+## Third-party material
+
+Fixtures under `fixtures/tomato/` and `fixtures/eval_wide/` are derived from the CaptainCook4D dataset (Peddi et
+al., NeurIPS 2024 Datasets and Benchmarks, https://aria-research-lab.github.io/projects/CaptainCook4D), licensed
+under the Apache License 2.0 per the dataset's project page. We use step labels, a small number of video frames
+and recorded model answers, modified from the originals. Other licences: [docs/LICENCES.md](docs/LICENCES.md).
