@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wordless-replay",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["server.py"],
+      "port": 5119,
+      "env": {"WORDLESS_TAPE": "replay"}
+    }
+  ]
+}

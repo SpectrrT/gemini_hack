@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.venv/
+__pycache__/
+.pytest_cache/
+.DS_Store
+research/
+# generated at run time (rebuild with scripts/import_tomato_fixture.py)
+cards/
+tape/
+runs/
+data/

@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wordless</title>
+<style>
+  :root { --ink:#111; --paper:#fbfaf6; --line:#111; --mute:#77736a; --soft:#e9e6dc; --green:#1f9d55; --amber:#e0a100; --red:#d5392b; --blue:#1f5fd0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 -apple-system, "Helvetica Neue", Arial, sans-serif; color:var(--ink); background:var(--paper); }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:18px; padding:12px 22px; border-bottom:3px solid var(--line); background:#fff; position:sticky; top:0; z-index:5; }
+  header h1 { font-size:22px; margin:0; letter-spacing:.5px; font-weight:800; }
+  header .tag { color:var(--mute); font-size:13px; }
+  nav { display:flex; gap:6px; margin-left:auto; }
+  nav button { font:inherit; font-weight:700; padding:7px 16px; border:2px solid var(--line); background:#fff; cursor:pointer; }
+  nav button.on { background:var(--ink); color:#fff; }
+  .pill { font-size:12px; font-weight:700; padding:3px 9px; border:2px solid var(--line); text-transform:uppercase; letter-spacing:.6px; }
+  .pill.replay { background:#fff3c4; } .pill.live { background:#d6f5e0; }
+  main { padding:20px 22px 60px; max-width:1500px; margin:0 auto; }
+  section { display:none; } section.on { display:block; }
+  .cols { display:grid; grid-template-columns:minmax(320px, 440px) 1fr; gap:24px; align-items:start; }
+  .box { border:3px solid var(--line); background:#fff; padding:14px; }
+  .box h2 { margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.8px; }
+  button.act { font:inherit; font-weight:700; padding:9px 16px; border:2px solid var(--line); background:#fff; cursor:pointer; }
+  button.act.primary { background:var(--ink); color:#fff; }
+  button.act:disabled { opacity:.4; cursor:default; }
+  select, input[type=text] { font:inherit; padding:7px 8px; border:2px solid var(--line); background:#fff; max-width:100%; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+  label.small { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.6px; }
+  video { width:100%; background:#000; display:block; aspect-ratio:16/9; }
+  .note { color:var(--mute); font-size:13px; }
+  .err { color:var(--red); font-weight:600; }
+
+  /* build stages */
+  .stages { list-style:none; margin:0; padding:0; }
+  .stages li { display:grid; grid-template-columns:22px 86px 1fr; gap:8px; padding:6px 0; border-bottom:1px solid var(--soft); font-size:14px; }
+  .stages .dot { width:14px; height:14px; border:2px solid var(--line); border-radius:50%; margin-top:3px; }
+  .stages li.running .dot { background:var(--amber); animation:pulse 1s infinite; }
+  .stages li.done .dot { background:var(--green); } .stages li.failed .dot { background:var(--red); } .stages li.skipped .dot { background:var(--soft); }
+  .stages .who { font-size:11px; color:var(--mute); display:block; }
+  @keyframes pulse { 50% { opacity:.3; } }
+
+  /* the card */
+  .card { display:grid; grid-template-columns:repeat(3, 1fr); gap:0; border:3px solid var(--line); background:var(--line); }
+  .card.n4 { grid-template-columns:repeat(2, 1fr); }
+  .panel { position:relative; background:#fff; border:3px solid var(--line); margin:-1.5px; aspect-ratio:16/9; overflow:hidden; transition:box-shadow .2s, opacity .2s; }
+  .panel img { width:100%; height:100%; object-fit:contain; display:block; }
+  .panel .num { position:absolute; left:6px; top:6px; width:34px; height:34px; background:var(--ink); color:#fff; font-weight:800; font-size:20px; display:grid; place-items:center; }
+  .panel .mark { position:absolute; right:8px; top:6px; font-size:30px; font-weight:900; line-height:1; }
+  .panel .mass { position:absolute; right:8px; bottom:5px; font-size:11px; color:var(--mute); font-variant-numeric:tabular-nums; }
+  .panel.seen { box-shadow:inset 0 0 0 7px var(--green); z-index:1; } .panel.seen .mark { color:var(--green); }
+  .panel.unsure { box-shadow:inset 0 0 0 7px var(--amber); z-index:1; } .panel.unsure .mark { color:var(--amber); }
+  .panel.skipped { box-shadow:inset 0 0 0 7px var(--red); z-index:1; background:#fdecea; } .panel.skipped .mark { color:var(--red); }
+  .panel.now::after { content:""; position:absolute; inset:0; border:4px dashed var(--blue); pointer-events:none; }
+  .panel.kf img { object-fit:cover; }
+
+  .verdict { margin-top:14px; border:3px solid var(--line); padding:14px 16px; font-size:26px; font-weight:800; background:#fff; min-height:66px; }
+  .verdict.clean { background:#d6f5e0; } .verdict.bad { background:#fdecea; } .verdict.unsure { background:#fff3c4; }
+  .verdict small { display:block; font-size:13px; font-weight:500; color:var(--mute); margin-top:4px; }
+  .timeline { display:flex; height:22px; border:2px solid var(--line); margin-top:10px; background:#fff; overflow:hidden; }
+  .timeline i { flex:1 1 0; min-width:1px; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12px; margin-top:6px; color:var(--mute); }
+  .legend b { display:inline-block; width:11px; height:11px; margin-right:3px; vertical-align:-1px; }
+  .pace { height:14px; border:2px solid var(--line); margin-top:8px; background:#fff; }
+  .pace i { display:block; height:100%; width:0; background:var(--blue); }
+
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { border:2px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top; }
+  th { background:var(--ink); color:#fff; font-size:12px; text-transform:uppercase; letter-spacing:.6px; }
+  td.ok { background:#d6f5e0; } td.no { background:#fdecea; } td.meh { background:#fff3c4; }
+  .scope { border-left:6px solid var(--line); padding:6px 12px; margin:10px 0; background:#fff; }
+  ul.tight { margin:6px 0; padding-left:20px; }
+  .guide { position:relative; } .guide::after { content:""; position:absolute; inset:8%; border:2px dashed rgba(255,255,255,.75); pointer-events:none; }
+  .pace span { display:inline-block; padding:2px 8px; margin:2px 4px 2px 0; border:2px solid var(--line); font-weight:700; font-size:13px; background:#d6f5e0; }
+  .pace span.short { background:#fdecea; }
+  #ppace { height:auto; min-height:0; border:0; background:none; }
+  ul.check { margin:0; padding-left:18px; } ul.check li { margin:5px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>WORDLESS</h1>
+  <span class="tag">Do it once on camera. Your demonstration becomes the manual and the test.</span>
+  <span id="mode" class="pill">…</span>
+  <nav>
+    <button data-tab="prep">0 · Prep</button>
+    <button data-tab="teach">1 · Teach</button>
+    <button data-tab="follow" class="on">2 · Follow</button>
+    <button data-tab="proof">3 · Proof</button>
+  </nav>
+</header>
+<main>
+
+<!-- ============================ PREP ============================ -->
+<section id="prep">
+  <div class="cols">
+    <div>
+      <div class="box">
+        <h2>Record a test clip (no API calls)</h2>
+        <div class="guide"><video id="pcam" autoplay muted playsinline></video></div>
+        <p class="note">Keep hands and every object inside the dashed frame for the whole run.</p>
+        <div class="row">
+          <label class="small">Kit steps</label>
+          <select id="pkit"></select>
+          <label class="small">This clip</label>
+          <select id="prole"></select>
+        </div>
+        <div class="row">
+          <button class="act" id="pcamOn">Camera on</button>
+          <button class="act primary" id="prec" disabled>● Record</button>
+          <button class="act" id="pmark" disabled>Step starts (N)</button>
+          <span id="precT" class="note"></span>
+        </div>
+        <div class="pace" id="ppace"></div>
+        <p class="note">Tap "Step starts" (or press N) as each step begins. A step under 6 s shows red: it gives the checker too few windows. Aim for about 8 s.</p>
+        <div class="row">
+          <label class="small">or a file</label><input type="file" id="pfile" accept="video/*">
+          <button class="act" id="pupload">Add file</button>
+        </div>
+        <p id="perr" class="err"></p>
+      </div>
+      <div class="box" style="margin-top:18px">
+        <h2>Without a key, also do</h2>
+        <ul class="check">
+          <li>Print a card and hand it to someone with no explanation. Ask what each panel tells them to do.</li>
+          <li>Print the sealed cards, cut, fold and shuffle them.</li>
+          <li>Run <code>.venv/bin/python scripts/stress.py</code> to see where the verdict rule breaks.</li>
+          <li>Say the opening out loud: the card is the thing the judge keeps; the checker is its proof.</li>
+        </ul>
+        <div class="row">
+          <select id="pcard"></select>
+          <button class="act" id="pprintCard">Print this card</button>
+          <button class="act" id="pprintSealed">Print sealed cards</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="box">
+        <h2>Test clips and their answer key</h2>
+        <div id="pclips"></div>
+        <p id="pneed" class="note"></p>
+        <div class="row">
+          <button class="act primary" id="pgate" disabled>Run the table test</button>
+          <span class="note" id="pgateNote"></span>
+        </div>
+        <ul class="stages" id="pstages"></ul>
+        <div id="pgateRes"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ TEACH ============================ -->
+<section id="teach">
+  <div class="cols">
+    <div>
+      <div class="box">
+        <h2>Teaching clip</h2>
+        <video id="tcam" autoplay muted playsinline></video>
+        <div class="row">
+          <input type="text" id="ttitle" placeholder="Name of the routine" value="Table routine" style="flex:1">
+        </div>
+        <div class="row">
+          <button class="act" id="tcamOn">Camera on</button>
+          <button class="act primary" id="trec" disabled>● Record</button>
+          <span id="trecT" class="note"></span>
+        </div>
+        <div class="row">
+          <label class="small">or a file</label><input type="file" id="tfile" accept="video/*">
+          <button class="act" id="tupload">Build from file</button>
+        </div>
+        <div class="row">
+          <label class="small">or</label>
+          <button class="act" id="ttape">Rebuild the tomato card from recorded answers</button>
+        </div>
+        <p class="note" id="tnote"></p>
+      </div>
+    </div>
+    <div>
+      <div class="box">
+        <h2>Build</h2>
+        <ul class="stages" id="stages"></ul>
+        <p id="terr" class="err"></p>
+      </div>
+      <div id="tcardWrap" style="margin-top:18px; display:none">
+        <div class="row"><b id="tcardTitle"></b><span class="note" id="tcardMeta"></span>
+          <label class="note"><input type="checkbox" id="tshowkf"> show the real keyframes</label>
+          <button class="act" id="tgo">Follow this card →</button></div>
+        <div class="card" id="tcard"></div>
+        <p class="note" id="tdropped"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ FOLLOW ============================ -->
+<section id="follow" class="on">
+  <div class="cols">
+    <div>
+      <div class="box">
+        <h2>Who is following</h2>
+        <div class="row"><label class="small">Card</label><select id="fcard"></select></div>
+        <div class="row">
+          <label class="small">Source</label>
+          <select id="fsrc"></select>
+          <select id="fspeed"><option value="1">1× (real time)</option><option value="4">4×</option><option value="8" selected>8×</option><option value="16">16×</option></select>
+        </div>
+        <div class="row">
+          <button class="act primary" id="fstart">Start</button>
+          <button class="act" id="fdone" disabled>Done (space)</button>
+          <label class="note" title="Per-panel cut-offs from the card's own teaching clip. Needs a self-test; not yet measured."><input type="checkbox" id="fown"> per-panel cut-offs</label>
+        </div>
+        <video id="fvid" muted playsinline></video>
+        <div class="pace" id="pace" title="pace light: hold each step until the bar fills (8 s)"><i></i></div>
+        <div class="timeline" id="tl"></div>
+        <div class="legend" id="lg"></div>
+        <p class="note" id="fstat"></p>
+        <p class="err" id="ferr"></p>
+      </div>
+      <div class="box" id="sealed" style="margin-top:14px; display:none">
+        <h2>Flip the sealed card</h2>
+        <div class="row">
+          <button class="act" data-sealed="right">It said: do it right</button>
+          <select id="sealStep"></select>
+          <button class="act" data-sealed="skip">It said: skip this panel</button>
+        </div>
+        <p class="note" id="sealMsg">Entered after the verdict is on screen. Goes on the tally in the Proof tab, wrong verdicts included.</p>
+      </div>
+    </div>
+    <div>
+      <div class="card" id="fcardGrid"></div>
+      <div class="verdict" id="verdict">—<small>The verdict is computed from every buffered window when the follower is done. Panels turning green before that are display only.</small></div>
+      <div class="scope">Checks that each step <b>happened</b>, not how well it was done. Three answers: seen · never happened · not sure.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PROOF ============================ -->
+<section id="proof">
+  <div class="box">
+    <h2>Public recordings (CaptainCook4D: other people and kitchens than the teaching clip)</h2>
+    <div class="row"><button class="act primary" id="prun">Run the eval</button><span class="note" id="pnote"></span></div>
+    <div id="ptable"></div>
+    <p class="note">Card taught from recording 12_17. <b>12_10 and 12_43 are development data: the verdict rule was tuned on them.</b> Recordings 12_26 and 12_41 (scripts/gate.sh) are the first held-out test. The text-only checker gets the 12 named steps as text, setup steps included. The same function scores these recordings and the live checker. Window accuracy is counted on windows fully inside a human-labelled step.</p>
+  </div>
+  <div class="box" style="margin-top:18px">
+    <h2>Sealed-card tally (this table, today)</h2>
+    <div id="tally"></div>
+  </div>
+  <div class="box" style="margin-top:18px">
+    <h2>Where it fails</h2>
+    <ul class="tight">
+      <li>Look-alike steps (salt, pepper, herbs): most wrong windows are here.</li>
+      <li>Steps shorter than about a second are not seen.</li>
+      <li>Order: only violations of must-come-before links are reported; unproven on a real order error.</li>
+      <li>How well a step was done, amounts and temperatures are out of scope.</li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const api = async (url, body) => {
+  const r = await fetch(url, body === undefined ? {} : body instanceof FormData ? {method:'POST', body} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const j = await r.json().catch(() => ({error: r.statusText}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const COLORS = ['#1f5fd0','#d5392b','#1f9d55','#e0a100','#8e44ad','#00a3a3','#e2711d','#5b6b00','#c2185b','#444','#0b7285','#7a4a00'];
+let STATUS = null, CARD = null;
+
+// ---------------------------------------------------------------- tabs
+$$('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(t) {
+  $$('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  $$('main > section').forEach(s => s.classList.toggle('on', s.id === t));
+  if (t === 'proof') loadTally();
+  if (t === 'prep') loadTable();
+}
+
+async function init() {
+  STATUS = await api('/api/status');
+  const m = $('#mode');
+  m.textContent = STATUS.tape_mode === 'replay' ? 'replay · recorded answers, no API calls' : 'tape: ' + STATUS.tape_mode + (STATUS.has_key ? '' : ' · no key');
+  m.className = 'pill ' + (STATUS.tape_mode === 'replay' ? 'replay' : 'live');
+  $('#tnote').textContent = STATUS.tape_mode === 'replay'
+    ? 'Replay mode: building from a new clip needs the live API. Restart with WORDLESS_TAPE=auto and a funded key.' : '';
+  $('#ttape').parentElement.style.display = STATUS.tape_mode === 'replay' ? '' : 'none';
+  const sel = $('#fcard'); sel.innerHTML = '';
+  STATUS.cards.forEach(c => sel.add(new Option(`${c.title} (${c.steps} panels)`, c.id)));
+  sel.onchange = () => loadCard(sel.value);
+  if (STATUS.cards.length) await loadCard(sel.value);
+  else $('#fcardGrid').innerHTML = '<p class="note" style="background:#fff;padding:14px;margin:0">No card yet. Build one in the Teach tab, or run scripts/import_tomato_fixture.py.</p>';
+}
+
+// ---------------------------------------------------------------- card rendering
+function renderCard(el, card, opts = {}) {
+  el.className = 'card' + (card.steps.length === 4 ? ' n4' : '');
+  if (card.steps.length <= 3) el.style.gridTemplateColumns = `repeat(${card.steps.length}, 1fr)`; else el.style.gridTemplateColumns = '';
+  el.innerHTML = card.steps.map((s, k) =>
+    `<div class="panel ${opts.kf ? 'kf' : ''}" data-step="${s.id}" title="${s.action.replace(/"/g, '&quot;')}">
+       <img src="/cards/${card.id}/${opts.kf ? s.keyframe : s.panel}?v=${encodeURIComponent(card.created || '')}">
+       <span class="num">${k + 1}</span><span class="mark"></span><span class="mass"></span></div>`).join('');
+}
+function paintPanels(el, panels, now, verdict) {
+  el.querySelectorAll('.panel').forEach(p => {
+    const sid = p.dataset.step, st = panels[sid] || {state:'pending', mass:0};
+    let cls = st.state === 'pending' ? '' : st.state;
+    if (verdict) cls = verdict.skipped.includes(sid) ? 'skipped' : verdict.unsure.includes(sid) ? 'unsure' : verdict.seen.includes(sid) ? 'seen' : '';
+    p.classList.remove('seen', 'unsure', 'skipped', 'now');
+    if (cls) p.classList.add(cls);
+    if (!verdict && now === sid) p.classList.add('now');
+    p.querySelector('.mark').textContent = cls === 'seen' ? '✓' : cls === 'unsure' ? '?' : cls === 'skipped' ? '✕' : '';
+    p.querySelector('.mass').textContent = st.mass ? st.mass.toFixed(1) : '';
+  });
+}
+
+async function loadCard(id) {
+  CARD = await api('/api/cards/' + id);
+  renderCard($('#fcardGrid'), CARD);
+  const src = $('#fsrc'); src.innerHTML = '';
+  src.add(new Option('Live camera (one question every 2 s)', 'live'));
+  CARD.recordings.forEach(r => src.add(new Option(`Recording ${r.id}${r.kind === 'still' ? ' (saved table session)' : ''}${r.video ? '' : ' · no video file'}${r.on_tape ? '' : ' · not scored yet (live calls)'}`, 'rec:' + r.id)));
+  if (STATUS.tape_mode === 'replay' && CARD.recordings.length) src.selectedIndex = Math.min(2, CARD.recordings.length);
+  src.onchange = () => { $('#fspeed').style.display = src.value === 'live' ? 'none' : ''; };
+  src.onchange();
+  $('#sealStep').innerHTML = CARD.steps.map((s, k) => `<option value="${s.id}">panel ${k + 1}</option>`).join('');
+  $('#lg').innerHTML = CARD.steps.map((s, k) => `<span><b style="background:${COLORS[k % COLORS.length]}"></b>${k + 1}</span>`).join('') + '<span><b style="background:#ddd"></b>none</span>';
+  resetFollow();
+}
+
+// ---------------------------------------------------------------- follow
+let F = {sid:null, poll:null, cam:null, tick:null, i:0, prev:null, live:false, lastNow:null, nowSince:0};
+function resetFollow() {
+  clearInterval(F.poll); clearInterval(F.tick);
+  if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
+  F = {sid:null, poll:null, cam:null, tick:null, i:0, prev:null, live:false, lastNow:null, nowSince:0};
+  const v = $('#fvid'); v.pause(); v.srcObject = null; v.removeAttribute('src'); v.load();
+  $('#verdict').className = 'verdict'; $('#verdict').innerHTML = '—<small>The verdict is computed from every buffered window when the follower is done. Panels turning green before that are display only.</small>';
+  $('#tl').innerHTML = ''; $('#fstat').textContent = ''; $('#ferr').textContent = ''; $('#sealed').style.display = 'none';
+  $('#fstart').disabled = false; $('#fdone').disabled = true; $('#pace').firstElementChild.style.width = '0';
+  if (CARD) paintPanels($('#fcardGrid'), {}, null, null);
+}
+function grab(video) {
+  const c = document.createElement('canvas'); c.width = 640; c.height = Math.round(640 * (video.videoHeight || 9) / (video.videoWidth || 16));
+  c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.72);
+}
+$('#fstart').onclick = async () => {
+  resetFollow();
+  $('#fstart').disabled = true;                          // before any await: a second click must not start a second session
+  const src = $('#fsrc').value, own = $('#fown').checked, v = $('#fvid');
+  try {
+    if (src === 'live') {
+      const s = await api('/api/follow/live', {card: CARD.id, own_thresholds: own});
+      F.cam = await navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}, audio:false});
+      v.srcObject = F.cam; await v.play();
+      F.sid = s.id; F.live = true;
+      const post = (body, again) => fetch(`/api/follow/${F.sid}/frame`, {method:'POST', headers:{'Content-Type':'application/json'}, body})
+        .then(r => { if (!r.ok) throw 0; }).catch(() => { if (again) post(body, false); else F.lost = (F.lost || 0) + 1; });
+      F.tick = setInterval(() => {                       // a still every second; one question per 2 s from a fresh pair
+        const cur = grab(v);                             // (non-overlapping pairs: the measured protocol)
+        if (F.prev) { post(JSON.stringify({i:F.i++, stills:[F.prev, cur]}), true); F.prev = null; }
+        else F.prev = cur;
+      }, 1000);
+    } else {
+      const rec = src.slice(4), speed = +$('#fspeed').value;
+      const info = CARD.recordings.find(r => r.id === rec);
+      const s = await api('/api/follow/replay', {card: CARD.id, recording: rec, speed, own_thresholds: own});
+      F.sid = s.id;
+      if (info && info.video) { v.src = `/video/${rec}.mp4`; v.playbackRate = Math.min(16, speed); v.play().catch(() => {}); }
+    }
+  } catch (e) { $('#ferr').textContent = e.message; $('#fstart').disabled = false; return; }
+  $('#fdone').disabled = !F.live;                        // a replay finishes by itself
+  F.poll = setInterval(pollFollow, 400);
+};
+async function pollFollow() {
+  if (!F.sid) return;
+  let s; try { s = await api('/api/follow/' + F.sid); } catch (e) { return; }
+  paintFollow(s);
+}
+function paintFollow(s) {
+  paintPanels($('#fcardGrid'), s.panels, s.now, s.verdict);
+  const ids = CARD.steps.map(x => x.id);
+  $('#tl').innerHTML = s.timeline.map(([i, step, conf]) => `<i style="background:${step ? COLORS[ids.indexOf(step) % COLORS.length] : '#ddd'};opacity:${step ? Math.max(.35, conf) : 1}" title="window ${i}: ${step ? 'panel ' + (ids.indexOf(step) + 1) : 'none'} (${conf})"></i>`).join('');
+  $('#fstat').textContent = `${s.windows}${s.total ? ' / ' + s.total : ''} windows labelled` + (s.waiting ? ` · ${s.waiting} in flight` : '') + (s.errors ? ` · ${s.errors} failed` : '') + (F.lost ? ` · ${F.lost} never reached the server` : '');
+  if (s.fatal) $('#ferr').textContent = s.fatal;
+  if (F.live) {                                           // pace light: how long the current panel has been held
+    if (s.now !== F.lastNow) { F.lastNow = s.now; F.nowSince = Date.now(); }
+    $('#pace').firstElementChild.style.width = s.now ? Math.min(100, (Date.now() - F.nowSince) / 80) + '%' : '0';
+  }
+  if (s.done && s.verdict) showVerdict(s);
+}
+function showVerdict(s) {
+  clearInterval(F.poll); clearInterval(F.tick);
+  const v = s.verdict, el = $('#verdict');
+  el.className = 'verdict ' + (v.clean ? 'clean' : v.skipped.length || v.order_violations.length ? 'bad' : 'unsure');
+  el.innerHTML = v.text.charAt(0).toUpperCase() + v.text.slice(1) + `<small>${v.windows} windows · rule: best run of a panel must sum to its cut-off (${STATUS.rule.min_mass}); ${STATUS.rule.unsure_mass}–${STATUS.rule.min_mass} is "not sure"${v.missing_windows.length ? ' · ' + v.missing_windows.length + ' windows never answered' : ''}</small>`;
+  $('#fdone').disabled = true; $('#fstart').disabled = false;
+  if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
+  if (F.live) {                                          // sealed cards are for live trials only
+    $('#sealed').style.display = '';
+    $('#sealMsg').textContent = 'Entered after the verdict is on screen. Goes on the tally in the Proof tab, wrong verdicts included.';
+    api('/api/cards/' + CARD.id).then(c => {             // the session just saved is now a replayable recording
+      const src = $('#fsrc'), had = new Set([...src.options].map(o => o.value));
+      c.recordings.filter(r => !had.has('rec:' + r.id)).forEach(r => src.add(new Option(`Recording ${r.id} (saved table session)`, 'rec:' + r.id)));
+      CARD.recordings = c.recordings;
+    }).catch(() => {});
+  }
+}
+async function finishFollow() {
+  if (!F.sid || !F.live || $('#fdone').disabled) return;
+  clearInterval(F.tick); $('#fdone').disabled = true; $('#fstat').textContent += ' · finishing…';
+  $('#fvid').pause();
+  const s = await api(`/api/follow/${F.sid}/finish`, {});
+  paintFollow(s);
+}
+$('#fdone').onclick = finishFollow;
+document.addEventListener('keydown', e => { if (e.code === 'Space' && $('#follow').classList.contains('on') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); finishFollow(); } });
+$$('#sealed button').forEach(b => b.onclick = async () => {
+  try {
+    const r = await api('/api/tally', {session: F.sid, sealed: b.dataset.sealed, step: $('#sealStep').value});
+    $('#sealMsg').textContent = `Logged: card checker was ${r.card_checker}. The one-call baseline runs on the same trial in the background. Logging again replaces this entry.`;
+  } catch (e) { $('#sealMsg').textContent = e.message; }
+});
+
+// ---------------------------------------------------------------- teach
+const STAGES = [['prepare','local'],['name','Hydrogen'],['locate','Decisions API'],['plan','Argon'],['draw','image model'],['letters','Decisions API'],['selftest','Decisions API'],['card','']];
+let T = {cam:null, rec:null, chunks:[], t0:0, timer:null};
+function paintStages(events) {
+  const last = {}; events.forEach(e => last[e.stage] = e);
+  $('#stages').innerHTML = STAGES.map(([st, who]) => { const e = last[st];
+    return `<li class="${e ? e.state : ''}"><span class="dot"></span><span><b>${st}</b><span class="who">${who}</span></span><span>${e ? (e.detail || e.state) + (e.state !== 'running' ? ` <span class="note">${e.t}s</span>` : '') : ''}</span></li>`; }).join('');
+}
+paintStages([]);
+async function runJob(start) {
+  $('#terr').textContent = ''; $('#tcardWrap').style.display = 'none'; paintStages([]);
+  let job; try { job = (await start()).job; } catch (e) { $('#terr').textContent = e.message; return; }
+  const timer = setInterval(async () => {
+    const j = await api('/api/jobs/' + job);
+    paintStages(j.events);
+    if (!j.done) return;
+    clearInterval(timer);
+    if (j.error) { $('#terr').textContent = j.error; return; }
+    const card = await api('/api/cards/' + j.card);
+    showBuiltCard(card);
+    await init(); $('#fcard').value = card.id; await loadCard(card.id);
+  }, 350);
+}
+function showBuiltCard(card) {
+  $('#tcardWrap').style.display = '';
+  $('#tcardTitle').textContent = card.title;
+  const st = card.self_test;
+  $('#tcardMeta').textContent = `${card.steps.length} panels` + (st ? ` · self-test ${st.recognised}/${st.of}` : ' · self-test not run') + (card.plan_source ? ` · plan: ${card.plan_source}` : '');
+  const draw = () => renderCard($('#tcard'), card, {kf: $('#tshowkf').checked});
+  $('#tshowkf').onchange = draw; draw();
+  $('#tdropped').textContent = card.dropped.length ? 'Left off the card: ' + card.dropped.map(d => `${d.action} (${d.reason})`).join(' · ') : '';
+  $('#tgo').onclick = () => showTab('follow');
+}
+$('#ttape').onclick = () => runJob(() => api('/api/teach', {from_tape: 'tomato'}));
+$('#tupload').onclick = () => { const f = $('#tfile').files[0]; if (!f) { $('#terr').textContent = 'Choose a video file first.'; return; }
+  const fd = new FormData(); fd.append('video', f); fd.append('title', $('#ttitle').value); runJob(() => api('/api/teach', fd)); };
+$('#tcamOn').onclick = async () => {
+  try { T.cam = await navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}, audio:false}); $('#tcam').srcObject = T.cam; $('#trec').disabled = false; }
+  catch (e) { $('#terr').textContent = 'Camera: ' + e.message; }
+};
+$('#trec').onclick = () => {
+  if (T.rec && T.rec.state === 'recording') { T.rec.stop(); return; }
+  T.chunks = []; T.rec = new MediaRecorder(T.cam, {videoBitsPerSecond: 2500000});
+  T.rec.ondataavailable = e => e.data.size && T.chunks.push(e.data);
+  T.rec.onstop = () => { clearInterval(T.timer); $('#trec').textContent = '● Record'; $('#trecT').textContent = '';
+    const blob = new Blob(T.chunks, {type: T.rec.mimeType}); const fd = new FormData();
+    fd.append('video', blob, 'teach.' + (T.rec.mimeType.includes('mp4') ? 'mp4' : 'webm')); fd.append('title', $('#ttitle').value);
+    runJob(() => api('/api/teach', fd)); };
+  T.rec.start(); T.t0 = Date.now(); $('#trec').textContent = '■ Stop and build';
+  T.timer = setInterval(() => $('#trecT').textContent = ((Date.now() - T.t0) / 1000).toFixed(0) + ' s', 250);
+};
+
+// ---------------------------------------------------------------- prep (table clips, no API calls)
+const P = {marks: []};
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
+const paceHtml = pace => pace.map(x => `<span class="${x.short ? 'short' : ''}">step ${x.step}: ${x.seconds} s</span>`).join('');
+function roleOptions(n) {
+  const sel = $('#prole'), keep = sel.value; sel.innerHTML = '';
+  sel.add(new Option('Teaching run', 'teach')); sel.add(new Option('Follow: do it right', 'right'));
+  for (let k = 1; k <= n; k++) sel.add(new Option(`Follow: skip step ${k}`, 'skip' + k));
+  sel.value = [...sel.options].some(o => o.value === keep) ? keep : (P.table && P.table.clips.some(c => c.role === 'teach') ? 'right' : 'teach');
+}
+function renderTable(t) {
+  P.table = t;
+  const kit = $('#pkit');
+  if (!kit.options.length) for (let k = 2; k <= 9; k++) kit.add(new Option(k, k));
+  kit.value = t.kit_steps; roleOptions(t.kit_steps);
+  $('#pclips').innerHTML = t.clips.length ? '<table><tr><th>Clip</th><th>Answer key</th><th>Length</th><th>Pace</th><th></th></tr>' +
+    t.clips.map(c => `<tr><td><a href="/video/${c.name}.mp4" target="_blank"><b>${c.name}</b></a><br><span class="note">${c.time}</span></td>
+      <td>${c.role === 'teach' ? 'teaching run' : c.truth === 'right' ? 'do it right' : 'skip step ' + c.skip}</td><td>${c.seconds} s</td>
+      <td class="pace">${c.pace.length ? paceHtml(c.pace) : '<span class="note">not marked</span>'}</td>
+      <td><button class="act" data-del="${c.name}">Delete</button></td></tr>`).join('') + '</table>'
+    : '<p class="note">No clips yet. Record the teaching run first, then follow runs: one done right and two that each skip a different step.</p>';
+  $$('#pclips [data-del]').forEach(b => b.onclick = async () => { if (confirm('Delete ' + b.dataset.del + '?')) renderTable(await api(`/api/table/clips/${b.dataset.del}/delete`, {})); });
+  $('#pneed').textContent = t.need.length ? 'Still needed for the table test: ' + t.need.join('; ') + '.' : 'All clips for the table test are recorded.';
+  $('#pgate').disabled = !t.can_run || t.need.length > 0 || P.running;
+  $('#pgateNote').textContent = t.can_run ? '' : 'Needs a funded key and a server started without WORDLESS_TAPE=replay. The clips stay saved until then.';
+  if (t.last_gate && !P.running && !P.failed) showGate(t.last_gate);
+  const pc = $('#pcard'); pc.innerHTML = ''; (STATUS ? STATUS.cards : []).forEach(c => pc.add(new Option(c.title, c.id)));
+}
+function showGate(g) {
+  const cls = o => o === 'correct' ? 'ok' : o === 'abstained' || o === 'unscored' ? 'meh' : 'no';
+  $('#pgateRes').innerHTML = `<p><b class="${g.passed ? '' : 'err'}">${g.passed ? 'PASS' : 'FAIL'}</b> at ${g.time}: ${g.correct}/${g.of} verdicts right, ${g.false_never_happened} false "never happened", clip to card ${g.clip_to_card_s} s, ${g.panels} panels for a ${g.kit_steps}-step kit.</p>` +
+    g.problems.map(x => `<p class="err">${esc(x)}</p>`).join('') +
+    '<table><tr><th>Clip</th><th>Answer key</th><th>Verdict</th><th>Outcome</th></tr>' +
+    g.rows.map(r => `<tr><td>${r.clip}</td><td>${r.truth === 'right' ? 'do it right' : 'skip step ' + r.skip}</td><td>${esc(r.verdict || r.fatal || '')}</td><td class="${cls(r.outcome)}">${r.outcome}</td></tr>`).join('') + '</table>';
+}
+async function loadTable() { try { renderTable(await api('/api/table')); } catch (e) { $('#perr').textContent = e.message; } }
+$('#pkit').onchange = async () => renderTable(await api('/api/table/kit', {steps: +$('#pkit').value}));
+async function sendClip(blob, name, marks) {
+  const role = $('#prole').value, fd = new FormData();
+  if (role === 'teach' && P.table && P.table.clips.some(c => c.role === 'teach') && !confirm('Replace the saved teaching run with this clip?')) { $('#precT').textContent = 'not saved'; return; }
+  fd.append('video', blob, name); fd.append('marks', JSON.stringify(marks || []));
+  fd.append('role', role === 'teach' ? 'teach' : 'follow');
+  if (role !== 'teach') { fd.append('truth', role === 'right' ? 'right' : 'skip'); if (role !== 'right') fd.append('skip', role.slice(4)); }
+  $('#perr').textContent = ''; $('#precT').textContent = 'saving…';
+  try { const r = await api('/api/table/clips', fd); if (role === 'teach') $('#prole').value = 'right'; renderTable(r); $('#ppace').innerHTML = paceHtml(r.clip.pace); $('#precT').textContent = 'saved as ' + r.clip.name; }
+  catch (e) { $('#perr').textContent = e.message; $('#precT').textContent = ''; }
+}
+$('#pcamOn').onclick = async () => {
+  try { P.cam = await navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}, audio:false}); $('#pcam').srcObject = P.cam; $('#prec').disabled = false; }
+  catch (e) { $('#perr').textContent = 'Camera: ' + e.message; }
+};
+function livePace() {
+  const now = (Date.now() - P.t0) / 1000;
+  $('#precT').textContent = now.toFixed(0) + ' s';
+  $('#ppace').innerHTML = paceHtml(P.marks.map((m, k) => { const end = k + 1 < P.marks.length ? P.marks[k + 1] : now; return {step: k + 1, seconds: (end - m).toFixed(1), short: k + 1 < P.marks.length && end - m < 6}; }));
+}
+$('#prec').onclick = () => {
+  if (P.rec && P.rec.state === 'recording') { P.rec.stop(); return; }
+  P.chunks = []; P.marks = []; P.rec = new MediaRecorder(P.cam, {videoBitsPerSecond: 2500000});
+  P.rec.ondataavailable = e => e.data.size && P.chunks.push(e.data);
+  P.rec.onstop = () => { clearInterval(P.timer); $('#prec').textContent = '● Record'; $('#pmark').disabled = true;
+    sendClip(new Blob(P.chunks, {type: P.rec.mimeType}), 'clip.' + (P.rec.mimeType.includes('mp4') ? 'mp4' : 'webm'), P.marks); };
+  P.rec.start(); P.t0 = Date.now(); $('#prec').textContent = '■ Stop and save'; $('#pmark').disabled = false; $('#ppace').innerHTML = '';
+  P.timer = setInterval(livePace, 250);
+};
+$('#pmark').onclick = () => { if (P.rec && P.rec.state === 'recording') { P.marks.push((Date.now() - P.t0) / 1000); livePace(); } };
+document.addEventListener('keydown', e => { if ((e.key === 'n' || e.key === 'N') && $('#prep').classList.contains('on') && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) $('#pmark').click(); });
+$('#pupload').onclick = () => { const f = $('#pfile').files[0]; if (!f) { $('#perr').textContent = 'Choose a video file first.'; return; } sendClip(f, f.name, []); };
+$('#pprintCard').onclick = () => { if ($('#pcard').value) window.open('/print/card/' + $('#pcard').value); else $('#perr').textContent = 'No card yet: build one in the Teach tab.'; };
+$('#pprintSealed').onclick = () => window.open('/print/sealed?steps=' + $('#pkit').value);
+$('#pgate').onclick = async () => {
+  P.running = true; P.failed = null; $('#pgate').disabled = true; $('#pstages').innerHTML = ''; $('#pgateRes').innerHTML = ''; $('#perr').textContent = '';
+  try {
+    const {job} = await api('/api/table/gate', {});
+    for (;;) {
+      const j = await api('/api/jobs/' + job);
+      const last = {}; j.events.forEach(e => { last[e.stage + (e.stage === 'follow' ? ':' + (e.detail || '').split(':')[0] : '')] = e; });
+      $('#pstages').innerHTML = Object.values(last).map(e => `<li class="${e.state}"><span class="dot"></span><b>${e.stage}</b><span>${esc(e.detail || '')}</span></li>`).join('');
+      if (j.done) { if (j.error) P.failed = j.error; break; }
+      await new Promise(r => setTimeout(r, 700));
+    }
+  } catch (e) { P.failed = e.message; }
+  P.running = false;
+  if (P.failed) $('#pgateRes').innerHTML = '<p class="err">This run failed: ' + esc(P.failed) + '</p>';
+  if ($('#fstart').disabled) STATUS = await api('/api/status');      // a follow session is running: do not repaint its card
+  else await init();                                                  // the new table card appears in Teach and Follow
+  loadTable();
+};
+
+// ---------------------------------------------------------------- proof
+const cell = c => c === null || c === undefined ? '<td class="meh">not recorded</td>'
+  : c.error ? `<td class="meh">failed<br><span class="note">${c.error}</span></td>`
+  : `<td class="${c.skips_caught === c.skips_total && !c.false_alarms.length ? 'ok' : 'no'}">${c.skips_caught}/${c.skips_total} skips caught<br>${c.false_alarms.length} false alarms<br>${c.found}/${c.performed} done steps found${c.unsure && c.unsure.length ? '<br>' + c.unsure.length + ' not sure<br><span class="note">without the not-sure band: ' + c.frozen_rule.skips_caught + '/' + c.skips_total + ' caught, ' + c.frozen_rule.false_alarms.length + ' false alarms</span>' : ''}${c.window_acc ? `<br><span class="note">windows ${c.window_acc[0]}/${c.window_acc[1]}</span>` : ''}</td>`;
+$('#prun').onclick = async () => {
+  $('#pnote').textContent = 'running…';
+  try {
+    const r = await api('/api/eval', {card: 'tomato'});
+    $('#pnote').textContent = r.tape_mode === 'replay' ? 'Replayed from answers recorded against the live API. Nothing was called now.' : 'tape mode: ' + r.tape_mode;
+    $('#ptable').innerHTML = '<table><tr><th>Recording</th><th>Truly skipped</th><th>One Hydrogen call (baseline)</th><th>Text-only checker</th><th>Card checker</th></tr>' +
+      r.rows.map(x => `<tr><td><b>${x.recording}</b><br><span class="note">${x.windows} windows</span></td><td>${x.truth_panels.length ? 'panels ' + x.truth_panels.join(', ') : 'none (clean run)'}</td>${cell(x.hydrogen_one_call)}${cell(x.text_only)}${cell(x.card)}</tr>`).join('') + '</table>';
+  } catch (e) { $('#pnote').textContent = e.message; }
+};
+async function loadTally() {
+  const rows = await api('/api/tally');
+  const cls = o => o === 'correct' ? 'ok' : o === 'abstained' || o === 'pending' || o === 'not recorded' ? 'meh' : 'no';
+  const count = k => { const done = rows.filter(r => r.source !== 'replay').filter(r => !['pending', 'not recorded'].includes(r[k]) && !String(r[k]).startsWith('error')); return `${done.filter(r => r[k] === 'correct').length}/${done.length} correct`; };
+  $('#tally').innerHTML = rows.length ? `<p><b>Card checker ${count('card_checker')}</b> · one Hydrogen call ${count('hydrogen_one_call')} · n = ${rows.length}</p>
+    <table><tr><th>Time</th><th>Sealed card</th><th>Verdict shown</th><th>Card checker</th><th>One Hydrogen call</th></tr>` +
+    rows.map(r => `<tr><td>${r.time}</td><td>${r.sealed === 'skip' ? 'skip panel ' + r.truth_panel : 'do it right'}</td><td>${r.verdict}</td><td class="${cls(r.card_checker)}">${r.card_checker}</td><td class="${cls(r.hydrogen_one_call)}">${r.hydrogen_one_call}</td></tr>`).join('') + '</table>'
+    : '<p class="note">No sealed trials yet. After a follow session, flip the sealed card and log what it said.</p>';
+}
+init();
+</script>
+</body>
+</html>

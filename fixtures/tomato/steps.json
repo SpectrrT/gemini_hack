@@ -1,0 +1,98 @@
+[
+ {
+  "n": 1,
+  "start_s": 2,
+  "end_s": 15,
+  "best_frame_s": 11,
+  "action": "Retrieve a tomato from the refrigerator.",
+  "done_when": "Tomato is in hand and refrigerator door is closed."
+ },
+ {
+  "n": 2,
+  "start_s": 17,
+  "end_s": 21,
+  "best_frame_s": 19,
+  "action": "Rinse the tomato under running tap water.",
+  "done_when": "Tomato is washed and faucet is turned off."
+ },
+ {
+  "n": 3,
+  "start_s": 22,
+  "end_s": 29,
+  "best_frame_s": 27,
+  "action": "Dry the tomato with a paper towel.",
+  "done_when": "Tomato surface is wiped dry with the paper towel."
+ },
+ {
+  "n": 4,
+  "start_s": 32,
+  "end_s": 40,
+  "best_frame_s": 37,
+  "action": "Set a wooden cutting board and tomato on the counter.",
+  "done_when": "Tomato rests on the cutting board on the counter."
+ },
+ {
+  "n": 5,
+  "start_s": 40,
+  "end_s": 102,
+  "best_frame_s": 54,
+  "action": "Slice the tomato into rounds with a knife.",
+  "done_when": "Tomato is cut into even slices on the board."
+ },
+ {
+  "n": 6,
+  "start_s": 107,
+  "end_s": 117,
+  "best_frame_s": 115,
+  "action": "Take a clean plate from the dishwasher.",
+  "done_when": "Plate is held near the counter and dishwasher is closed."
+ },
+ {
+  "n": 7,
+  "start_s": 118,
+  "end_s": 132,
+  "best_frame_s": 125,
+  "action": "Arrange the tomato slices onto the plate.",
+  "done_when": "Tomato slices are laid flat on the plate on the stove."
+ },
+ {
+  "n": 8,
+  "start_s": 138,
+  "end_s": 223,
+  "best_frame_s": 207,
+  "action": "Measure and sprinkle black pepper over the tomatoes.",
+  "done_when": "Tomato slices are evenly coated with black pepper."
+ },
+ {
+  "n": 9,
+  "start_s": 227,
+  "end_s": 237,
+  "best_frame_s": 232,
+  "action": "Shake salt over the tomato slices.",
+  "done_when": "Salt is sprinkled on the tomatoes and shaker is replaced."
+ },
+ {
+  "n": 10,
+  "start_s": 240,
+  "end_s": 253,
+  "best_frame_s": 248,
+  "action": "Sprinkle dried herb seasoning onto the tomatoes.",
+  "done_when": "Dried herbs cover the tomatoes and jar is returned to cabinet."
+ },
+ {
+  "n": 11,
+  "start_s": 309,
+  "end_s": 352,
+  "best_frame_s": 330,
+  "action": "Top the tomato slices with shredded mozzarella cheese.",
+  "done_when": "Shredded cheese covers the tomatoes and bag is back in fridge."
+ },
+ {
+  "n": 12,
+  "start_s": 354,
+  "end_s": 403,
+  "best_frame_s": 399,
+  "action": "Drizzle olive oil over the mozzarella-topped tomatoes.",
+  "done_when": "Olive oil coats the tomatoes and bottle is put back."
+ }
+]
