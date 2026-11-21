@@ -139,12 +139,29 @@ recording, so a session filmed at the table can be replayed if the network fails
 
 ## How it works
 
+### The flow the page uses (frame by frame)
+
+| Stage | Model | Job |
+|---|---|---|
+| name | `gemini-4-carbon` (Gemini 4) | Watches the teaching clip once and lists the distinct steps and the order performed. A short clip is slowed first so quick poses are visible. Hydrogen is the fallback if Carbon does not answer. |
+| locate | `gemini-decision-1` (Decisions API) | Labels every teaching frame, five a second; code places each named step and picks its clearest frame. A named step is never dropped. |
+| draw | `gemini-3-pro-image` (not Gemini 4) | Redraws each clearest frame as a line-art panel: only the hands and objects that carry the step, no portrait. |
+| selftest | `gemini-decision-1` | The finished card follows its own teaching clip. |
+| follow | `gemini-decision-1` | Reference sheet plus one camera frame, several a second: which step? Code lines the answers up against the card (`wordless/decode.py`). A low-movement step that reads as a pause is kept when one step stays the best guess for a second. |
+| second vote | `gemini-4-hydrogen` (Gemini 4) | One call on the whole run once it is over. "Never happened" stands only when the frames and Hydrogen both say so; a flagged step Hydrogen saw performed becomes "not sure". It cannot un-see a step the frames saw, so a clean run never waits for it. The same call is shown beside our verdict as the baseline. |
+
+The two Gemini 4 models are Carbon (teaches) and Hydrogen (confirms). The second vote, the low-movement rule
+and the hands-only drawing were added on Nov 21 and are tested against the fake API only
+(`tests/test_fast.py`, `tests/test_signs.py`); none has been measured on real footage yet.
+
+### Older 2 s window cards (the tomato card and the 16-recording eval)
+
 | Stage | Model | Job |
 |---|---|---|
 | name | `gemini-4-hydrogen` | Watches the teaching clip, names the steps. Never asked for timestamps (they drift). |
 | locate | `gemini-decision-1` | Labels every 2 s window; code picks each step's keyframe. |
 | plan | `gemini-4-argon` | Marks setup steps, must-come-before links, end-state questions. |
-| draw | `gemini-3.1-flash-lite-image` | Keyframe to line-art panel, all panels in parallel. |
+| draw | `gemini-3-pro-image` | Keyframe to line-art panel, all panels in parallel. |
 | letters | `gemini-decision-1` | Rejects panels with writing; redraws up to twice, then reports the panel. |
 | selftest | `gemini-decision-1` | The card must recognise each step in its own teaching clip; sets per-panel cut-offs. |
 | follow | `gemini-decision-1` | Card image plus a clip or two stills: which panel is this? Once a second. |
@@ -199,10 +216,11 @@ runs, at 2.5 to 6 minutes a run: too noisy and too slow to rely on. Details in [
   on other people is unmeasured.
 - Fast path: a step must be held about half a second and look different from the others. Two identical steps
   in a row need a visible pause between them, and when one of two identical steps is missed the verdict may
-  name the wrong one of the pair. Steps the model named but could not find in the frames are left off the card.
+  name the wrong one of the pair. A step the model named is always placed on the card, even when the frames
+  show it weakly, so a weak step can get a poor reference picture.
 - Fast path: answer time depends on API load (1.6 s to 8 s per frame measured); slow answers delay the lights,
   not the verdict.
-- Teaching takes about a minute for a 25 s clip; most of it is Hydrogen naming the steps and the self-test.
+- Teaching takes about a minute for a 25 s clip; most of it is Carbon naming the steps and the self-test.
 - Older 2 s window cards: the whole-clip review was chosen after seeing all 16 eval recordings and is not
   confirmed on fresh ones; look-alike steps still light the wrong panel live; order errors are not claimed.
 - The end-state second vote exists as a question (`checker.end_state`) but is not wired into the verdict.
