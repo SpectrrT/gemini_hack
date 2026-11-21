@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Wordless mark: a speech bubble that holds an eye instead of words -->
-  <path d="M7 2.5h18a5.5 5.5 0 0 1 5.5 5.5v11A5.5 5.5 0 0 1 25 24.500H15.200L8 30.500V24.500H7A5.500 5.500 0 0 1 1.500 19V8A5.500 5.500 0 0 1 7 2.500z" fill="#231a3a"/>
-  <path d="M5.200 13.500C8 8.900 11.700 6.800 16 6.800s8 2.100 10.800 6.700C24 18.100 20.300 20.200 16 20.200S8 18.100 5.200 13.500z" fill="#ffc629"/>
-  <circle cx="16" cy="13.500" r="4.300" fill="#231a3a"/>
-  <circle cx="17.600" cy="11.900" r="1.300" fill="#fffdf8"/>
+  <!-- Wordless mark: a speech bubble that holds shapes instead of words -->
+  <path d="M7 2.500h18a5.500 5.500 0 0 1 5.500 5.500v11A5.500 5.500 0 0 1 25 24.500H15.200L8 30.500V24.500H7A5.500 5.500 0 0 1 1.500 19V8A5.500 5.500 0 0 1 7 2.500z" fill="#231a3a"/>
+  <circle cx="8.400" cy="13.500" r="3.400" fill="#ffc629"/>
+  <rect x="12.800" y="10.300" width="6.400" height="6.400" rx="1.500" fill="#22cf9b"/>
+  <path d="M24 9.900l3.700 6.500a.600.600 0 0 1-.500.900h-6.400a.600.600 0 0 1-.500-.900z" fill="#ff5a3c"/>
 </svg>
