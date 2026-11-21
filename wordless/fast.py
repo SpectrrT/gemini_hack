@@ -150,10 +150,12 @@ def build(video_path, card_id=None, title="Routine", emit=None):
         # Left to themselves the frame answers dropped quick or look-alike steps the model had named.
         segs = decode.force(probs, times, order) if order else None
         how = "placed by the named order"
+        if not segs and {s["label"] for s in free} == set(ids):
+            segs, how = free, "order read from the frames"          # no order was named, but the frames found every step
+        if not segs:                                                 # never drop a named step: place them in the order listed
+            segs, how = decode.force(probs, times, ids), "placed in the order listed"
         if not segs:
-            segs, how = free, "order read from the frames"
-            if not segs:
-                raise ValueError("no step could be found in the clip: hold each step a little longer and keep it in view")
+            raise ValueError(f"the clip has too few frames ({len(frames)}) for the {len(ids)} steps seen in it: record a slightly longer clip")
         for s in segs:                               # the clearest frame of each occurrence
             inside = [i for i, t in enumerate(times) if s["start"] <= t <= s["end"]]
             s["frame"] = max(inside, key=lambda i: (probs[i] or {}).get(s["label"], 0.0))
