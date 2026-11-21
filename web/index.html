@@ -208,6 +208,7 @@
         <div id="tdrop"><video id="tcam" autoplay muted playsinline></video></div>
         <div class="row">
           <button class="act primary" id="trec">● Record</button>
+          <button class="act" id="tdiscard" style="display:none">✕ Stop, no card</button>
           <span id="trecT" class="note"></span>
         </div>
         <div class="row">
@@ -706,12 +707,17 @@ $('#trec').onclick = async () => {
   }
   T.chunks = []; T.rec = new MediaRecorder(T.cam, {videoBitsPerSecond: 2500000});
   T.rec.ondataavailable = e => e.data.size && T.chunks.push(e.data);
-  T.rec.onstop = () => { clearInterval(T.timer); $('#trec').textContent = '● Record'; $('#trecT').textContent = '';
+  T.discard = false;
+  T.rec.onstop = () => { clearInterval(T.timer); $('#trec').textContent = '● Record'; $('#tdiscard').style.display = 'none';
+    if (T.discard) { T.chunks = []; $('#trecT').textContent = 'Recording thrown away. No card was built.'; return; }   // nothing is uploaded
+    $('#trecT').textContent = '';
     const blob = new Blob(T.chunks, {type: T.rec.mimeType});
     buildFrom(blob, 'teach.' + (T.rec.mimeType.includes('mp4') ? 'mp4' : 'webm')); };
-  T.rec.start(); T.t0 = Date.now(); $('#trec').textContent = '■ Done, build the card';
+  T.rec.start(); T.t0 = Date.now(); $('#trec').textContent = '■ Done, build the card'; $('#tdiscard').style.display = '';
   T.timer = setInterval(() => $('#trecT').textContent = ((Date.now() - T.t0) / 1000).toFixed(0) + ' s', 250);
 };
+$('#tdiscard').onclick = () => { if (T.rec && T.rec.state === 'recording') { T.discard = true; T.rec.stop(); } };   // stop without building
+addEventListener('keydown', e => { if (e.key === 'Escape' && T.rec && T.rec.state === 'recording') $('#tdiscard').click(); });
 
 // ---------------------------------------------------------------- prep (table clips, no API calls)
 const P = {marks: []};
