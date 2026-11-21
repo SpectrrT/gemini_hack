@@ -116,3 +116,31 @@ main:has(#go:disabled) .verdict:not(.exact, .near, .errors, .unknown, .nothing) 
 table { font-size:14px; } th { font:700 12.5px var(--sans); color:var(--ink-2); } th, td { border-bottom:2px solid var(--line); }
 .strip .sign { flex-basis:clamp(92px, calc((100% - 196px) / 6), 170px); }
 .strip:not(:has(> div:nth-of-type(5))) .sign { flex-basis:clamp(92px, calc((100% - 128px) / 4), 190px); }
+
+/* ------------------------------------------------------------ more from beautifului.dev, in Playground colours */
+/* Task Rows: a status capsule at the end of every build stage */
+.stages li { grid-template-columns:22px 84px 1fr auto; align-items:center; }
+.stages li::after { font:700 12px/1 var(--sans); padding:6px 10px; border-radius:999px; white-space:nowrap; }
+.stages li.done::after { content:"Completed"; background:var(--green-tint); color:var(--green-ink); }
+.stages li.running::after { content:"Running"; background:var(--sun); color:#3a2c00; }
+.stages li.failed::after { content:"Failed"; background:var(--tomato); color:#fff; }
+.stages li.skipped::after { content:"Skipped"; background:var(--field); color:var(--ink-3); }
+/* Tool Chips: the step order of a sequence as a compact mono chip */
+.seq .chips { font:500 12px var(--mono); color:var(--ink); background:var(--surface); padding:4px 9px; border-radius:8px; box-shadow:0 0 0 1.5px var(--line-strong); vertical-align:2px; }
+/* Recommendation Card: confidence-meter bars in front of the progress chip of each candidate */
+.seq .note { display:inline-flex; align-items:center; gap:6px; vertical-align:2px; }
+.seq .note::before { content:""; width:14px; height:11px; background:linear-gradient(currentColor, currentColor) 0 100% / 3px 5px, linear-gradient(currentColor, currentColor) 5.5px 100% / 3px 8px, linear-gradient(currentColor, currentColor) 11px 100% / 3px 11px; background-repeat:no-repeat; opacity:.35; }
+.seq.lead .note::before { opacity:1; }
+/* Loading State: pixel-grid loader inside the verdict while watching or deciding, and the readout as a mono capsule */
+main:has(#go:disabled) .verdict:not(.exact, .near, .errors, .unknown, .nothing)::before {
+  content:""; display:inline-block; width:6px; height:6px; border-radius:2px; margin:0 34px 14px 2px; vertical-align:middle;
+  animation:pix-sweep .9s steps(1) infinite;
+}
+@keyframes pix-sweep {
+  0%   { background:var(--tomato); box-shadow:0 9px var(--tomato), 0 18px var(--tomato), 9px 0 #ffd3c9, 9px 9px #ffd3c9, 9px 18px #ffd3c9, 18px 0 #ffd3c9, 18px 9px #ffd3c9, 18px 18px #ffd3c9; }
+  33%  { background:#ffd3c9; box-shadow:0 9px #ffd3c9, 0 18px #ffd3c9, 9px 0 var(--tomato), 9px 9px var(--tomato), 9px 18px var(--tomato), 18px 0 #ffd3c9, 18px 9px #ffd3c9, 18px 18px #ffd3c9; }
+  66%  { background:#ffd3c9; box-shadow:0 9px #ffd3c9, 0 18px #ffd3c9, 9px 0 #ffd3c9, 9px 9px #ffd3c9, 9px 18px #ffd3c9, 18px 0 var(--tomato), 18px 9px var(--tomato), 18px 18px var(--tomato); }
+}
+.stat { display:inline-block; background:var(--field); padding:6px 11px; border-radius:12px; color:var(--ink-2); }
+/* Context Cards: source-style footer chip under each pose name is the hairline + soft shadow pairing */
+.box { box-shadow:0 6px 0 var(--ledge), 0 18px 47px 0 #0000000a; }
