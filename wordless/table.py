@@ -83,8 +83,10 @@ def _forget(name, role):
     if role == "teach":                # a new card: every follow answer was given against the old sheet
         shutil.rmtree(root / "teach" / GATE_CARD, ignore_errors=True)
         shutil.rmtree(root / "follow" / GATE_CARD, ignore_errors=True)
+        shutil.rmtree(root / "baseline" / "hydrogen" / GATE_CARD, ignore_errors=True)
     else:
         shutil.rmtree(root / "follow" / GATE_CARD / name, ignore_errors=True)
+        (root / "baseline" / "hydrogen" / GATE_CARD / f"{name}.json").unlink(missing_ok=True)   # the whole-clip answer too
 
 
 def pace(marks, seconds):

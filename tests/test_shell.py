@@ -51,7 +51,7 @@ def test_file_run_reports_status_and_the_baseline_beside_the_verdict(card, clien
 
 def test_tape_only_run_is_labelled_replay_and_says_the_baseline_was_not_recorded(card, client, fake_api, sandbox, monkeypatch):
     fake_api.colour_clip(sandbox / "videos" / "clean.mp4", COLOURS)
-    follow.replay(card, "clean", speed=0, block=True)
+    follow.replay(card, "clean", speed=0, block=True, review=False)      # card answers on tape, no whole-clip answer
     monkeypatch.setenv("WORDLESS_TAPE", "replay")
     s = client.post("/api/follow/replay", json={"card": "colours", "recording": "clean", "speed": 0}).get_json()
     done = wait_for(lambda: (lambda x: x if x["done"] and x["shell"]["baseline"]["state"] != "running" else None)(state(client, s["id"])))

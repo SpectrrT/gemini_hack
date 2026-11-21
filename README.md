@@ -9,20 +9,36 @@ Gemini 4 NYC Hackathon, Nov 21 2026 (Element 119).
 
 ## State of the evidence
 
-Card taught from CaptainCook4D recording 12_17; checked on other people in other kitchens. Small samples.
+Full tables, per recording, in [docs/EVAL.md](docs/EVAL.md). Numbers below can be re-computed without the API:
+`python scripts/eval_rules.py` (reads `fixtures/eval_wide`).
 
-| Part | State |
-|---|---|
-| Card checker, development recordings (the verdict rule was tuned on these two) | Measured: 12_10 clean run 9/9 steps found, 0 false alarms; 12_43 4/4 skipped steps flagged, 0 false alarms. |
-| Card checker, first recording never used for tuning (12_26, oil skipped) | the skipped step flagged, 0 false "never happened", 1 "not sure". |
-| Card checker, off-script recording (12_41: nothing skipped, ingredients swapped, different order) | **2 false "never happened"**, 2 "not sure", 5/9 done steps found. This is where it breaks. |
-| Live camera path (two stills, one question every 2 s), fed from recorded footage | 12_10 9/9 found; 12_43 4/4 skips flagged; 12_26 skip flagged, 1 "not sure". 0 false "never happened" on all three. About 0.5 s per question at real cadence. Not yet run from a webcam at a table. |
-| One Hydrogen call on the whole clip (baseline) | ties the card on 12_10, 12_43 and 12_26 (cleaner on 12_26: no "not sure"); on 12_41 it gives 6 false "never happened" against the card's 2. The card's edge is answering during the task, not accuracy on on-script runs. |
-| Text-only checker (no card image) | 12_43: 4/4 flagged plus 2 false alarms under the frozen rule. 12_26 same as the card; 12_41 1 false "never happened", 4 "not sure". |
-| Teach pipeline as one program | all stages ran on the real API on the 4-minute clip 12_17: 10 panels in 126 s; the card recognised 8 of its own 10 steps. Not yet timed on a short table clip. |
-| Answer stability | re-asking 12_43 gave the same label on 85 of 100 windows as an earlier run; one short step dropped from 2.07 to 0.89 and flipped to a false "never happened". Short steps are fragile. |
-| Order errors | Unreliable: 6 false order reports on 12_26. Claim skip detection only. |
-| Table gate (own routine, own camera) | Tooling built and tested against the fake API. Not yet run on real clips. |
+**Routines.** Card taught from CaptainCook4D recording 12_17, scored on the 16 other recordings of the same
+recipe (5 people, 6 kitchens; 12 of them never scored before the eval). Answer key: the dataset's human labels.
+
+| Method | False "never happened" (of 138 performed steps) | Skipped steps flagged (of 6) | "Not sure" on performed steps | Verdict fully right (of 16) |
+|---|---|---|---|---|
+| Card checker alone (what we started with) | 17 | 5 | 6 | 3 |
+| One Hydrogen call on the whole clip (baseline) | 12 | 6 | 0 | 13 |
+| **Card + whole-clip review (what ships now)** | **4** | 5 | 8 | 13 |
+
+- **Where the first version broke.** The card checker alone reported a performed step as "never happened" in 11
+  of 16 recordings. Pepper, salt, herbs and oil are all "a hand tips a small container over the plate"; the
+  pepper panel absorbed the others (herbs windows were labelled correctly 31% of the time).
+- **What we changed.** Every verdict now gets one whole-clip review by Hydrogen. It decides "never happened";
+  the card can only turn that into "not sure" (`wordless/follow.py`, `apply_review`). The card still gives the
+  live panel-by-panel view while the person works.
+- **What that does and does not show.** False alarms drop from 17 (card) and 12 (baseline) to 4. Whole
+  verdicts are right as often as the baseline (13 of 16), not more often. The rule was chosen after seeing all
+  16 recordings, so it needs fresh recordings to be confirmed. One real skip (a tomato held at the sink but not
+  rinsed) is reported as "not sure", not flagged.
+- **Order errors** are unreliable (6 false reports on one recording). Only skipped steps are claimed.
+- **Short steps** (under about 4 s) give one or two windows and cannot reach the cut-off on the card alone.
+
+**Sequences** (`/signs`). Plumbing tested against the fake API; on the real API one question per frame runs at
+about 13 answers a second, about 1 s each. Not yet measured on people performing poses: no accuracy number is
+claimed.
+
+**Not yet run:** a routine taught and followed from a webcam at a table; the table gate on real clips.
 
 ## Run it (no key needed)
 
@@ -95,6 +111,8 @@ recording, so a session filmed at the table can be replayed if the network fails
 | selftest | `gemini-decision-1` | The card must recognise each step in its own teaching clip; sets per-panel cut-offs. |
 | follow | `gemini-decision-1` | Card image plus a clip or two stills: which panel is this? Once a second. |
 | verdict | code | Heaviest-run rule in `wordless/tracker.py`. Seen, never happened, or not sure. |
+| review | `gemini-4-hydrogen` | One call on the whole clip (or the session's saved stills) checks the verdict: it decides "never happened"; the card can only make that "not sure". |
+| sequences | `gemini-decision-1` | `/signs`: reference sheet plus one frame, several a second: which pose? Code decodes the sequence and names it. |
 
 The verdict is computed from every buffered window when the follower is done. Windows whose call failed or
 is still in flight are asked again first (up to 10 s). A window that stays unanswered is listed in the

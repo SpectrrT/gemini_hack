@@ -31,3 +31,8 @@ OWN_SCORE_CLAMP = (0.9, 1.6)
 
 # Fast sequences (wordless/signs.py): one still per question, several a second, answered in parallel.
 SIGNS_MIN_GAP_S = float(os.environ.get("WORDLESS_SIGNS_GAP", 0.0))   # no spacing between questions
+
+# Whole-clip review of every verdict: one Hydrogen call decides "never happened"; the card can only turn that
+# into "not sure" (rule "review" in docs/EVAL.md, added after the 16-recording eval). WORDLESS_REVIEW=0 turns it off.
+REVIEW = os.environ.get("WORDLESS_REVIEW", "1") != "0"
+REVIEW_TIMEOUT_S = float(os.environ.get("WORDLESS_REVIEW_TIMEOUT", 45))
