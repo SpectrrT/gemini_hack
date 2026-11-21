@@ -826,7 +826,7 @@ async function loadProof() {
   try {
     const r = await api('/api/proof');
     $('#pnote').textContent = 'Re-scored just now from saved answers (fixtures/eval_wide). No API call.';
-    const all = r.totals[0].rows, by = k => all.find(m => m.key === k), tile = (m, name, cls) => `<div class="tile ${cls}"><b>${Math.round(m.clean_pct)}%</b><span>${name}</span><small>${m.clean} of ${m.performed} steps · ${m.false_never} wrongly flagged</small></div>`;
+    const all = r.totals[0].rows, by = k => all.find(m => m.key === k), tile = (m, name, cls) => { const clean = m.performed - m.false_never; return `<div class="tile ${cls}"><b>${Math.round(100 * clean / m.performed)}%</b><span>${name}</span><small>${clean} of ${m.performed} steps · ${m.false_never} wrongly flagged</small></div>`; };
     $('#phead').innerHTML = `<div class="cap">Steps people really did that were never wrongly called "never happened" (16 recordings of other people, ${by('review').performed} steps)</div>`
       + tile(by('card'), 'Our first version', '') + tile(by('one_call'), 'One Hydrogen call (baseline)', '') + tile(by('review'), 'Ours now: card + review', 'ours');
     $('#ptotals').innerHTML = r.totals.map(t => `<h3 style="margin:14px 0 6px">${t.set}</h3><table><tr><th>Method</th><th>False "never happened"</th><th>Recordings with one</th><th>Real skips flagged</th><th>"Not sure"</th><th>Verdict fully right</th></tr>` +
