@@ -169,7 +169,7 @@ video { width:100%; background:#0c0d0f; display:block; aspect-ratio:16/9; border
 .guide { position:relative; } .guide::after { content:""; position:absolute; inset:8%; border:1.5px dashed rgba(255,255,255,.7); border-radius:8px; pointer-events:none; }
 
 /* live indicator: pixel-grid loader + shimmer label, shown only while a run is watching or deciding */
-.live { display:none; align-items:center; gap:8px; margin-left:auto; font:500 12.5px var(--sans); text-transform:none; letter-spacing:0; }
+.box h2 .live { display:none; align-items:center; gap:8px; margin-left:auto; font:500 12.5px var(--sans); text-transform:none; letter-spacing:0; }
 .box:has(#go:disabled) .live { display:inline-flex; }
 .pix { display:grid; grid-template-columns:repeat(3, 4px); gap:1.5px; }
 .pix i { width:4px; height:4px; border-radius:1px; background:var(--ink); opacity:.15; animation:pixel-on .65s ease-in-out infinite; }

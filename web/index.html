@@ -526,7 +526,7 @@ function paintFollow(s) {
   else if (s.should_end && F.live) finishFollow();        // the person has paused after finishing: nobody has to press Done
 }
 function paintBase(sh) {
-  if (!sh) return;
+  if (!sh || !sh.baseline) return;
   const b = sh.baseline, el = $('#base');
   el.className = 'base' + (b.state === 'done' ? '' : b.state === 'running' ? ' wait' : ' na');
   el.innerHTML = b.state === 'done'
@@ -537,11 +537,11 @@ function showVerdict(s) {
   clearInterval(F.poll); clearInterval(F.tick); clearInterval(F.clock); clearInterval(F.bpoll); F.shown = true;
   $('#fdeadline').disabled = false;
   const v = s.verdict, el = $('#verdict'), sh = s.shell;
-  if (sh && sh.baseline.state === 'running') {            // ours is in; keep asking until the baseline lands
+  if (sh && sh.baseline && sh.baseline.state === 'running') {            // ours is in; keep asking until the baseline lands
     const sid = s.id;
     F.bpoll = setInterval(async () => {
       if (F.sid !== sid) return clearInterval(F.bpoll);
-      try { const x = await api('/api/follow/' + sid); paintBase(x.shell); if (x.shell.baseline.state !== 'running') clearInterval(F.bpoll); } catch (e) {}
+      try { const x = await api('/api/follow/' + sid); paintBase(x.shell); if (!x.shell || !x.shell.baseline || x.shell.baseline.state !== 'running') clearInterval(F.bpoll); } catch (e) {}
     }, 1000);
   }
   if (sh) {
