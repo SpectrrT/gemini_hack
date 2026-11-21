@@ -156,8 +156,6 @@ recording, so a session filmed at the table can be replayed if the network fails
 
 ## How it works
 
-### The flow the page uses (frame by frame)
-
 | Stage | Model | Job |
 |---|---|---|
 | name | `gemini-4-carbon` (Gemini 4) | Watches the teaching clip once and lists the distinct steps and the order performed. A short clip is slowed first so quick poses are visible. Hydrogen is the fallback if Carbon does not answer. |
@@ -171,29 +169,10 @@ The two Gemini 4 models are Carbon (teaches) and Hydrogen (confirms). The second
 and the hands-only drawing were added on Nov 21 and are tested against the fake API only
 (`tests/test_fast.py`, `tests/test_signs.py`); none has been measured on real footage yet.
 
-### Older 2 s window cards (the tomato card and the 16-recording eval)
-
-| Stage | Model | Job |
-|---|---|---|
-| name | `gemini-4-hydrogen` | Watches the teaching clip, names the steps. Never asked for timestamps (they drift). |
-| locate | `gemini-decision-1` | Labels every 2 s window; code picks each step's keyframe. |
-| plan | `gemini-4-argon` | Marks setup steps, must-come-before links, end-state questions. |
-| draw | `gemini-3-pro-image` | Keyframe to line-art panel, all panels in parallel. |
-| letters | `gemini-decision-1` | Rejects panels with writing; redraws up to twice, then reports the panel. |
-| selftest | `gemini-decision-1` | The card must recognise each step in its own teaching clip; sets per-panel cut-offs. |
-| follow | `gemini-decision-1` | Card image plus a clip or two stills: which panel is this? Once a second. |
-| verdict | code | Heaviest-run rule in `wordless/tracker.py`. Seen, never happened, or not sure. |
-| review | `gemini-4-hydrogen` | One call on the whole clip (or the session's saved stills) checks the verdict: it decides "never happened"; the card can only make that "not sure". |
-| fast teach | `gemini-4-carbon`, `gemini-decision-1`, `gemini-3-pro-image` | Carbon lists the distinct steps it sees; the Decisions API labels every frame; code finds the steps in order and their clearest frames; the image model draws them. |
-| fast follow | `gemini-decision-1` | Reference sheet plus one camera frame, five a second: which step? Code lines the answers up against the card. |
-
-The verdict is computed from every buffered window when the follower is done. Windows whose call failed or
-is still in flight are asked again first (up to 10 s). A window that stays unanswered is listed in the
-verdict, and a step it could be hiding is reported as "not sure", never as "never happened". Panels turning
-green during the task are display only.
-
-Tuned numbers live in `wordless/config.py`. They were frozen on recordings 12_10 and 12_43, so those two
-count as development data, not as a test.
+Cards built before this flow (the tomato card behind the 16-recording eval) are checked in 2 s windows with a
+whole-clip review; that method and its numbers are in [docs/EVAL.md](docs/EVAL.md). Its tuned numbers live in
+`wordless/config.py` and were frozen on recordings 12_10 and 12_43, so those two count as development data,
+not as a test.
 
 ## Layout
 
