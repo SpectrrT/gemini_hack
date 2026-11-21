@@ -11,10 +11,16 @@ Gemini 4 NYC Hackathon, Nov 21 2026 (Element 119).
 
 ## Who it is for
 
-One person: a trainer whose new hire does not share their language, at a prep station, a packing bench or a
-workshop. The trainer films the routine once. The new hire gets a card with no words on it and can check
-themselves against it. Wordless is a tested instruction sheet, not a coach: it says which step did not
-happen, not how well a step was done.
+Anyone who has to pass on a hands-on routine without relying on written instructions:
+
+- a trainer and a new hire who do not share a language, at a prep station, a packing bench or a workshop
+- a lab or a makerspace, where a setup or shutdown sequence has to be done the same way by everyone
+- a carer or family member showing someone how to use a device or follow a daily routine
+- a teacher of signs, knots, folds or any other sequence of hand movements
+
+One person films the routine once. The next person gets a card with no words on it and can check themselves
+against it. Wordless is a tested instruction sheet, not a coach: it says which step did not happen, not how
+well a step was done.
 
 ## What was built at the event
 
@@ -28,16 +34,6 @@ commit is at 11:11 AM that day and the git history covers the whole build.
   [docs/LICENCES.md](docs/LICENCES.md)), the Gemini models, and the libraries in `requirements.txt`.
 - Some comments mention `research/feasibility/...`. That was a scratch folder of API experiments run today at
   the venue to learn the request and response shapes; it is not part of this repository.
-
-## 3-minute demo flow
-
-1. One person shows a short routine to the camera: any steps, any speed, nothing typed.
-2. The card builds itself on screen. Carbon names the steps, the Decisions API finds each step's clearest
-   frame, the image model draws the panels.
-3. A second person follows the card and skips a step of their own choosing, without telling us which.
-4. The verdict names the missing step. Hydrogen's second vote on the same run lands under it.
-5. Proof tab: the 16-recording eval, including where the first version failed and what changed, and the live
-   trials logged at the table, wrong verdicts included.
 
 ## State of the evidence
 
