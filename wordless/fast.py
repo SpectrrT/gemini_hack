@@ -23,6 +23,13 @@ from . import config, decode, gemini, signs, video
 from . import follow as follow_mod
 from .teach import Build
 
+# Live alert ("you skipped this", shown while the person is still going). It must never cry wolf, so a step is
+# only called missed when a LATER step has been seen solidly, every earlier frame has its answer, the situation
+# has held for a moment, and the picture before and after the gap is not the same one.
+PROOF_FRAMES = 3          # frames the later step must hold
+PROOF_CONF = 0.5          # and its mean probability
+HOLD_S = 0.6              # seconds of run time the alert must stay true before it is shown
+
 MAX_FRAMES = 420          # teaching frames sent to the Decisions API (a long clip is sampled more thinly)
 TEACH_FPS = 5.0
 OTHER = "other"
@@ -252,6 +259,7 @@ class Session(signs.Session):
         self.card, self.recording, self.total, self.verdict = card, None, None, None
         self.step_ids = cards.step_ids(card)
         self.want = list(self.target["signs"])
+        self._clock = time.time
         follow_mod._sessions[self.id] = self
 
     def _marks(self, seen, final):
@@ -262,7 +270,7 @@ class Session(signs.Session):
             covered, _ = decode.progress(seen, self.want)
             _, ops = decode.align(seen, self.want[:covered])
         marks, extra, got = {sid: ("skipped" if final else "pending") for sid in self.step_ids}, [], {}
-        self._where, k = {}, 0                       # card step -> index in `seen` of the occurrence that matched it
+        self._where, self._wrong_at, self._extra_at, k = {}, {}, [], 0     # card step -> index in `seen` that matched / stood in
         for o in ops:
             if o["op"] == "match":
                 marks[self.step_ids[o["pos"] - 1]] = "seen"
@@ -270,8 +278,10 @@ class Session(signs.Session):
             elif o["op"] == "wrong":
                 marks[self.step_ids[o["pos"] - 1]] = "wrong"
                 got[self.step_ids[o["pos"] - 1]] = o["got"]
+                self._wrong_at[self.step_ids[o["pos"] - 1]] = k
             elif o["op"] == "extra":
                 extra.append(o["got"])
+                self._extra_at.append(k)
             if o["op"] != "missing":
                 k += 1
         if final:
@@ -294,6 +304,51 @@ class Session(signs.Session):
             extra = spare
         return marks, extra, got
 
+    def _live(self, segs, marks, extra):
+        """Marks to show WHILE the run is going, with the alert guards applied. Returns (marks, alert step or None).
+        States: pending, seen, missed (skipped: a later step is proven), wrong (another step done in its place),
+        moved (it was skipped, then done later)."""
+        order = self.step_ids
+        pose = {sid: st["pose"] for sid, st in zip(order, self.card["steps"])}
+        where, wrong_at = dict(self._where), dict(self._wrong_at)
+        with self.lock:
+            answered = [self.times[i] for i in self.answers if i in self.times]
+            waiting = [t for i, t in self.times.items() if i not in self.answers]
+        now_t = self._clock()                         # wall time: "has held for a moment" means real time passing
+        first_open = min(waiting) if waiting else None
+
+        def settled(t):                              # every frame taken before t has its answer
+            return first_open is None or first_open >= t
+
+        def solid(k):
+            return k is not None and k < len(segs) and segs[k]["frames"] >= PROOF_FRAMES and segs[k]["conf"] >= PROOF_CONF
+
+        spare = [segs[k]["label"] for k in self._extra_at if k < len(segs)]      # steps done that matched no place
+        out, candidates = dict(marks), {}
+        for idx, sid in enumerate(order):
+            if marks[sid] == "pending":
+                prev = next((p for p in reversed(order[:idx]) if marks[p] == "seen"), None)
+                proof = next((q for q in order[idx + 1:] if marks[q] == "seen" and solid(where.get(q))
+                              and (prev is None or pose[q] != pose[prev])), None)
+                if proof is None or not settled(segs[where[proof]]["start"]):
+                    continue
+                if pose[sid] in spare:               # skipped, then done afterwards
+                    spare.remove(pose[sid])
+                    out[sid] = "moved"
+                else:
+                    candidates[sid] = "missed"
+            elif marks[sid] == "wrong":
+                k = wrong_at.get(sid)
+                out[sid] = "pending"
+                if solid(k) and settled(segs[k]["start"]):
+                    candidates[sid] = "wrong"
+        since = getattr(self, "_since", {})
+        self._since = {sid: (kind, since[sid][1] if sid in since and since[sid][0] == kind else now_t) for sid, kind in candidates.items()}
+        for sid, (kind, t0) in self._since.items():
+            out[sid] = kind if now_t - t0 >= HOLD_S else "pending"
+        alert = next((sid for sid in order if out[sid] in ("missed", "wrong")), None)
+        return out, alert
+
     def _evidence(self, segs):
         """For each card step that was seen: the camera frame that shows it best (its URL)."""
         out = {}
@@ -312,8 +367,9 @@ class Session(signs.Session):
         st = super().state()
         seen = [s["label"] for s in st["seen"]]
         conf = {}
-        marks, extra, _ = self._marks(seen, final=False)
+        raw, extra, _ = self._marks(seen, final=False)
         evidence = self._evidence(st["seen"])
+        marks, alert = self._live(st["seen"], raw, extra)
         with self.lock:
             last = max(self.answers) if self.answers else None
             now = self.answers[last] if last is not None else None
@@ -323,7 +379,9 @@ class Session(signs.Session):
             pending = [sid for sid, s in zip(self.step_ids, self.card["steps"]) if s["pose"] == now["top"] and marks[sid] != "seen"]
             anyone = [sid for sid, s in zip(self.step_ids, self.card["steps"]) if s["pose"] == now["top"]]
             now_step = (pending or anyone or [None])[0]
-        covered = sum(m == "seen" or m == "wrong" for m in marks.values())
+        covered = sum(m == "seen" or m == "wrong" for m in raw.values())
+        reached = max((i for i, sid in enumerate(self.step_ids) if marks[sid] in ("seen", "moved", "wrong")), default=-1)
+        ahead = [sid for sid in self.step_ids[reached + 1:] if marks[sid] == "pending"]
         finished = covered >= len(self.step_ids) and st["idle"] is not None and st["idle"] >= 0.6
         return {
             "id": self.id, "card": self.card["id"], "source": self.source, "recording": None, "fast": True,
@@ -331,7 +389,8 @@ class Session(signs.Session):
             "now": now_step, "now_conf": now["conf"] if now else 0.0,
             "windows": st["answered"], "total": None, "errors": st["errors"], "waiting": st["waiting"], "dropped": st["dropped"],
             "strip": st["seen"], "extra": extra, "latency": st["latency"],
-            "next": next((sid for sid in self.step_ids if marks[sid] == "pending"), None),      # the step to show the person now
+            "next": ahead[0] if ahead else None,     # the step to show the person now (past anything they skipped)
+            "alert": None if self.done or not alert else {"step": alert, "kind": marks[alert]},
             "evidence": (self.verdict or {}).get("evidence") or evidence,
             "should_end": bool(st["should_end"] or finished),
             "done": self.done, "verdict": self.verdict, "fatal": self.fatal, "timeline": timeline,

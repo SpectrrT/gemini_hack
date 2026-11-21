@@ -102,6 +102,10 @@
   .fnextpic.swap { animation:fnextIn .35s ease-out; } .fnextpic.finished { box-shadow:inset 0 0 0 8px #1f9d55; }
   .fnextpic.finished::after { content:"\2713"; position:absolute; font-size:150px; font-weight:900; color:#1f9d55; }
   .fnextpic.finished img, .fnextpic.finished b { opacity:.15; }
+  .fnextpic.alerting { box-shadow:inset 0 0 0 8px #d5392b; background:#fdecea; animation:fnextAlert .5s ease-in-out 3; }
+  .fnextpic.alerting b { background:#d5392b; }
+  .fnextpic.alerting img { mix-blend-mode:multiply; }
+  @keyframes fnextAlert { 50% { box-shadow:inset 0 0 0 16px #d5392b; } }
   @keyframes fnextIn { from { transform:scale(.94); opacity:.4; } to { transform:scale(1); opacity:1; } }
   .evstrip { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
   .ev { position:relative; width:132px; border:3px solid #1f9d55; border-radius:12px; overflow:hidden; background:#fff; }
@@ -370,7 +374,7 @@ function renderCard(el, card, opts = {}) {
 function paintPanels(el, panels, now, verdict) {
   el.querySelectorAll('.panel').forEach(p => {
     const sid = p.dataset.step, st = panels[sid] || {state:'pending', mass:0};
-    let cls = st.state === 'pending' ? '' : st.state === 'wrong' ? 'skipped' : st.state;
+    let cls = st.state === 'pending' ? '' : st.state === 'wrong' || st.state === 'missed' ? 'skipped' : st.state === 'moved' ? 'unsure' : st.state;
     if (verdict) cls = verdict.skipped.includes(sid) ? 'skipped' : verdict.unsure.includes(sid) ? 'unsure' : (verdict.extra || []).includes(sid) ? 'extra' : verdict.seen.includes(sid) ? 'seen' : '';
     p.classList.remove('seen', 'unsure', 'skipped', 'extra', 'now');
     if (cls) p.classList.add(cls);
@@ -553,13 +557,24 @@ function paintGuide(s) {                                 // follow-along: the ne
   const box = $('#fnext');
   if (!s.fast) { box.style.display = 'none'; return; }
   box.style.display = '';
-  const pic = box.querySelector('.fnextpic'), steps = CARD.steps, k = steps.findIndex(x => x.id === s.next);
-  const all = s.next == null && Object.values(s.panels || {}).some(p => p.state === 'seen');
-  pic.classList.toggle('finished', all || !!(s.done && s.verdict && s.verdict.clean));
-  $('#fnextLab').textContent = s.done ? (k >= 0 ? 'This step was missed' : 'Finished') : all ? 'All steps seen' : 'Do this now';
-  const show = k >= 0 ? steps[k] : steps[steps.length - 1];
-  if (show && F.guideStep !== show.id) {
-    F.guideStep = show.id;
+  const pic = box.querySelector('.fnextpic'), steps = CARD.steps, v = s.done && s.verdict;
+  const anySeen = Object.values(s.panels || {}).some(p => p.state === 'seen');
+  // a skipped step is announced the moment a later step proves it, for 4 s; then the guide moves on
+  let alert = !s.done && s.alert ? s.alert.step : null;
+  if (alert) {
+    F.alertAt = F.alertAt || {};
+    if (!F.alertAt[alert]) F.alertAt[alert] = Date.now();
+    if (Date.now() - F.alertAt[alert] > 4000) alert = null;
+  }
+  const missed = v ? (v.skipped || [])[0] : null;
+  const showId = alert || missed || s.next || (steps[steps.length - 1] || {}).id;
+  const finishedOk = v ? !!v.clean : (!s.next && anySeen && !s.alert);
+  pic.classList.toggle('finished', finishedOk);
+  pic.classList.toggle('alerting', !!(alert || missed));
+  $('#fnextLab').textContent = alert ? (s.alert.kind === 'wrong' ? 'Wrong step here' : 'You skipped this') : v ? (missed ? 'This step was missed' : 'Finished') : finishedOk ? 'All steps seen' : 'Do this now';
+  const show = steps.find(x => x.id === showId);
+  if (show && F.guideStep !== show.id + (alert ? '!' : '')) {
+    F.guideStep = show.id + (alert ? '!' : '');
     $('#fnextImg').src = `/cards/${CARD.id}/${show.panel}`;
     $('#fnextNum').textContent = steps.indexOf(show) + 1;
     pic.classList.remove('swap'); void pic.offsetWidth; pic.classList.add('swap');
