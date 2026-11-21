@@ -110,6 +110,16 @@ def tape_windows(rec, mode, n_used):
     return out[:n_used]                 # the tape may hold a trailing fragment the run did not use
 
 
+def tape_probs(rec, mode, n_used):
+    """Per-window probabilities (the API returns those above 0.02); None where the window got no answer."""
+    out = [None] * n_used
+    for f in sorted((config.TAPE / "follow" / CARD / rec / mode).glob("*.json")):
+        if int(f.stem) < n_used:
+            a = json.loads(f.read_text())
+            out[int(f.stem)] = a.get("probs") or {str(a["step"] or "none"): a["conf"]}
+    return out
+
+
 def collect(recs):
     card = cards.load(CARD)
     lab = labels()
@@ -129,6 +139,7 @@ def collect(recs):
                                for s in e["step_annotations"] if s.get("errors")},
                "truth": truth(card, e),
                "card_windows": tape_windows(rec, "card", row["windows"]), "text_windows": tape_windows(rec, "text", row["windows"]),
+               "card_probs": tape_probs(rec, "card", row["windows"]), "text_probs": tape_probs(rec, "text", row["windows"]),
                "hydrogen": json.loads(hyd.read_text()) if hyd.exists() else None,
                "hydrogen_error": (row.get("hydrogen_one_call") or {}).get("error"),
                "text_error": (row.get("text_only") or {}).get("error"),

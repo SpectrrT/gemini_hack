@@ -105,6 +105,91 @@ dry 2, pepper 1.
   12_13 (2) and 12_48, on two attempts each. None changed a verdict.
 - 12_6 (oil skipped) is not scored: the dataset publishes no GoPro video for it.
 
+## What we changed after seeing the failures
+
+No new API calls. Every rule below is scored on the answers recorded for the tables above
+(`scripts/eval_rules.py`, reading `fixtures/eval_wide`). No rule has a number of its own; all reuse the
+cut-offs frozen on 12_10 and 12_43. The last two rules were designed after looking at all 16 recordings, so
+their numbers on the 12 new recordings are not a clean test; they need fresh recordings to be confirmed.
+
+Sources per step: **C** card checker, **T** text-only checker (each: seen / not sure / never happened),
+**H** the one Hydrogen call (performed / not performed).
+
+| Rule | Verdict "never happened" when | Otherwise |
+|---|---|---|
+| confirmed | C says never and H says not performed | exactly one of them says so: not sure; neither: seen |
+| card_and_text | C and T both say never | exactly one: not sure; neither: seen |
+| all_three | C, T and H all say so | one or two of them: not sure; none: seen |
+| averaged_confirmed | as "confirmed", with C replaced by the frozen rule applied to the per-window mean of the card and text-only probabilities | same |
+| sprinkle_group | as "confirmed" | plus: pepper, salt, herbs and oil are one look-alike group. A member H says was performed counts as seen when the card windows labelled with any group member weigh at least 1.6 per member H says was performed |
+| one_call_veto | H says not performed and neither C nor T saw the step | H says not performed but C or T saw it: not sure; H says performed: seen |
+
+**All 16**
+
+| Rule | Skipped steps flagged | Skips answered "not sure" | Skips missed | False "never happened" / performed steps | Recordings with a false "never happened" | "Not sure" on performed steps | Verdict fully right |
+|---|---|---|---|---|---|---|---|
+| card | 5/6 | 0 | 1 | 17/138 | 11/16 | 6 | 3/16 |
+| text | 4/6 | 2 | 0 | 4/138 | 3/16 | 16 | 4/16 |
+| one_call | 6/6 | 0 | 0 | 12/138 | 3/16 | 0 | 13/16 |
+| confirmed | 5/6 | 1 | 0 | 2/138 | 2/16 | 25 | 5/16 |
+| card_and_text | 4/6 | 1 | 1 | 4/138 | 3/16 | 13 | 4/16 |
+| all_three | 4/6 | 2 | 0 | 1/138 | 1/16 | 26 | 4/16 |
+| averaged_confirmed | 5/6 | 1 | 0 | 2/138 | 2/16 | 20 | 8/16 |
+| sprinkle_group | 5/6 | 1 | 0 | 2/138 | 2/16 | 11 | 12/16 |
+| one_call_veto | 5/6 | 1 | 0 | 3/138 | 2/16 | 9 | 13/16 |
+
+**12 never scored before**
+
+| Rule | Skipped steps flagged | Skips answered "not sure" | Skips missed | False "never happened" / performed steps | Recordings with a false "never happened" | "Not sure" on performed steps | Verdict fully right |
+|---|---|---|---|---|---|---|---|
+| card | 0/1 | 0 | 1 | 15/107 | 10/12 | 3 | 1/12 |
+| text | 0/1 | 1 | 0 | 3/107 | 2/12 | 9 | 3/12 |
+| one_call | 1/1 | 0 | 0 | 6/107 | 2/12 | 0 | 10/12 |
+| confirmed | 0/1 | 1 | 0 | 2/107 | 2/12 | 17 | 2/12 |
+| card_and_text | 0/1 | 0 | 1 | 3/107 | 2/12 | 12 | 2/12 |
+| all_three | 0/1 | 1 | 0 | 1/107 | 1/12 | 18 | 2/12 |
+| averaged_confirmed | 0/1 | 1 | 0 | 2/107 | 2/12 | 12 | 5/12 |
+| sprinkle_group | 0/1 | 1 | 0 | 2/107 | 2/12 | 5 | 9/12 |
+| one_call_veto | 0/1 | 1 | 0 | 1/107 | 1/12 | 5 | 10/12 |
+
+**14 not used for tuning**
+
+| Rule | Skipped steps flagged | Skips answered "not sure" | Skips missed | False "never happened" / performed steps | Recordings with a false "never happened" | "Not sure" on performed steps | Verdict fully right |
+|---|---|---|---|---|---|---|---|
+| card | 1/2 | 0 | 1 | 17/124 | 11/14 | 6 | 1/14 |
+| text | 1/2 | 1 | 0 | 4/124 | 3/14 | 14 | 3/14 |
+| one_call | 2/2 | 0 | 0 | 12/124 | 3/14 | 0 | 11/14 |
+| confirmed | 1/2 | 1 | 0 | 2/124 | 2/14 | 25 | 3/14 |
+| card_and_text | 1/2 | 0 | 1 | 4/124 | 3/14 | 13 | 3/14 |
+| all_three | 1/2 | 1 | 0 | 1/124 | 1/14 | 26 | 3/14 |
+| averaged_confirmed | 1/2 | 1 | 0 | 2/124 | 2/14 | 20 | 6/14 |
+| sprinkle_group | 1/2 | 1 | 0 | 2/124 | 2/14 | 11 | 10/14 |
+| one_call_veto | 1/2 | 1 | 0 | 3/124 | 2/14 | 9 | 11/14 |
+
+### Recommendation: one_call_veto
+
+The one call decides, and the window checkers can only turn its "not performed" into "not sure".
+
+- **What it fixes.** False "never happened" over all 16 recordings: 3 of 138 performed steps, against the
+  card's 17 and the one call's 12. On the 12 new recordings: 1 of 107, against 15 and 6.
+- **What it costs.** 9 "not sure" on performed steps (5 on the new recordings); the one call alone has none.
+  5 of 6 skipped steps are still flagged; the sixth (12_38, tomato held at the sink but not rinsed) becomes
+  "not sure" because both window checkers saw "rinse". No skip is reported as seen.
+- **Why this one.** It needs no knowledge of the recipe and no new number. By construction it can never
+  report a false "never happened" that the one call does not also report. It gives as many fully right
+  verdicts as the one call alone (13 of 16).
+- **What it does not fix.** The verdict now waits for the Hydrogen call, which took 8 to 109 s on these
+  recordings (median 14 s). The card's own panels still cannot tell the sprinkle steps apart; under this rule
+  the card image contributes almost nothing to the verdict that the text-only checker does not. The three
+  remaining false "never happened" are in off-script recordings (12_41 plate and cheese, 12_48 dry).
+- **No rule beats the one call on fully right verdicts.** The gain is fewer wrong accusations, paid for
+  in "not sure".
+
+sprinkle_group is close (2 false "never happened", 11 "not sure", 12 of 16 fully right) but names four
+steps of this recipe by hand, so it does not carry to another card. all_three has the fewest false
+"never happened" (1) and the most "not sure" (26). card_and_text does not help: the two window checkers
+share the short-step problem, and it loses a skip.
+
 ## Re-check without the API
 
 ```bash
@@ -112,7 +197,13 @@ dry 2, pepper 1.
 ```
 
 This recomputes every verdict from the window answers saved in `fixtures/eval_wide/<id>.json` with the
-frozen rule and prints the two tables above. To run it again from scratch (needs the key, about 7,000
+frozen rule and prints the two tables above. The combined rules:
+
+```bash
+.venv/bin/python scripts/eval_rules.py --detail
+```
+
+To run it again from scratch (needs the key, about 7,000
 Decisions calls and 16 Hydrogen calls, about 8 minutes in parallel):
 
 ```bash
