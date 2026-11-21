@@ -213,12 +213,14 @@ docs/                      EVAL.md, MANAGED.md, SUBMISSION.md, LICENCES.md, ui/ 
 tests/                     tests and the fake API
 ```
 
-## Managed Agents (experimental, not on the demo path)
+## Managed Agents
 
-`python scripts/blind_read.py <card_id>` starts one managed agent per panel. Each sees only the panel image,
-never the video or the step names, and writes what the panel tells a person to do; the Decisions API then
-scores that sentence against the true step. On the tomato card it scored 7, 7 and 5 of 9 panels over three
-runs, at 2.5 to 6 minutes a run: too noisy and too slow to rely on. Details in [docs/MANAGED.md](docs/MANAGED.md).
+`python scripts/blind_read.py <card_id>` puts a card through a blind read. One managed agent per panel sees
+only the panel image, never the video or the step names, and writes what the panel tells a person to do; the
+Decisions API then scores that sentence against the true step. It is an independent check that a card can be
+understood with no words and no context, and it shows which panels a reader gets wrong. On the tomato card the
+agents read 7, 7 and 5 of 9 panels correctly over three runs, at 2.5 to 6 minutes a run. Details in
+[docs/MANAGED.md](docs/MANAGED.md).
 
 ## Known gaps
 
