@@ -211,7 +211,7 @@ scripts/eval_wide.py       the 16-recording eval; eval_rules.py re-scores verdic
 scripts/fetch_captaincook.py   downloads the public recordings and labels
 fixtures/tomato/           answers recorded against the real API
 fixtures/eval_wide/        per-recording answers behind docs/EVAL.md
-docs/                      EVAL.md, MANAGED.md, SUBMISSION.md, VIDEO.md, LICENCES.md, ui/ screenshots
+docs/                      EVAL.md, MANAGED.md, SUBMISSION.md, LICENCES.md, ui/ screenshots
 tests/                     tests and the fake API
 ```
 
