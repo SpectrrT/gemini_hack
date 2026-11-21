@@ -31,7 +31,9 @@ PROOF_CONF = 0.5          # and its mean probability
 HOLD_S = 0.6              # seconds of run time the alert must stay true before it is shown
 
 MAX_FRAMES = 420          # teaching frames sent to the Decisions API (a long clip is sampled more thinly)
-TEACH_FPS = 5.0
+TEACH_FPS = 10.0          # was 5: a one-second action gave five stills, too few for the frames to place it (a real
+                          # 4.7 s clip: a step seen in 1 of 24 frames, so its reference picture did not show the step).
+                          # 10 a second is also close to the rate the live check runs at. Clips over 42 s are sampled thinner.
 OTHER = "other"
 
 REVIEW_PROMPT = """The image is a numbered reference sheet: each numbered picture is one step or pose of a routine.
