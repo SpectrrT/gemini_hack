@@ -1,4 +1,4 @@
-"""Fast sequences: teach a small vocabulary of poses once, then recognise rapid sequences of them.
+"""Frame-by-frame checking: the reference data and sessions behind the fast path (see fast.py).
 
 A kit is a vocabulary plus the sequences made from it:
   signs      each taught by one photo of the person holding the pose (the reference), redrawn as a panel
@@ -24,7 +24,7 @@ from . import card as cards
 from . import config, decode, gemini, video
 
 CELL = (400, 300)
-NONE_KEY = "zz_none"
+NONE_KEY = "other"            # the catch-all choice, named as the Decisions API guide asks
 FRAME_SIDE = 512                 # frames are downsized to this before they are sent
 MAX_INFLIGHT = 24                # frames waiting for an answer; beyond this new frames are dropped, not queued
 IDLE_END_S = 1.6                 # a pause this long after the last sign ends the sequence (live)

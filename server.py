@@ -22,13 +22,11 @@ import segno
 from flask import Flask, Response, abort, jsonify, render_template_string, request, send_file, send_from_directory
 
 from wordless import baseline, card as cards
-from wordless import config, evalrun, follow, gemini, table, teach, video
-from wordless.signs_routes import bp as signs_bp
+from wordless import config, evalrun, fast, follow, gemini, table, teach, video
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
 WEB = config.ROOT / "web"
-app.register_blueprint(signs_bp)      # fast sequences: /signs
 jobs = {}
 tally_lock = threading.Lock()
 TALLY = config.RUNS / "tally.json"
@@ -126,6 +124,8 @@ def teach_start():
         tmp = Path(tempfile.mkdtemp()) / ("upload" + (Path(f.filename or "").suffix or ".webm"))
         f.save(tmp)
         args = dict(video_path=tmp, card_id=cards.new_id(title), title=title)
+        if request.form.get("mode") != "classic":      # default: the fast path (any number of steps, frame by frame)
+            job["fast"] = True
     else:
         cid = (request.get_json(silent=True) or {}).get("from_tape")
         if not cid:
@@ -138,7 +138,7 @@ def teach_start():
 
     def run():
         try:
-            c = teach.build(emit=job["events"].append, **args)
+            c = (fast.build if job.get("fast") else teach.build)(emit=job["events"].append, **args)
             job["card"] = c["id"]
         except Exception as e:  # shown in the UI; the build log has the stage that failed
             job["error"] = f"{type(e).__name__}: {e}"[:300]
@@ -280,7 +280,8 @@ def follow_live():
     d = request.get_json()
     if gemini.mode() == "replay":
         abort(400, "The server is in replay mode (no API calls). Restart with WORDLESS_TAPE=auto and a funded key for live checks.")
-    s = follow.Session(cards.load(d["card"]), "live", use_own_thresholds=bool(d.get("own_thresholds")))
+    c = cards.load(d["card"])
+    s = fast.Session(c) if c.get("fast") else follow.Session(c, "live", use_own_thresholds=bool(d.get("own_thresholds")))
     _shell(s, "live camera", False, d.get("deadline_s"))
     return jsonify(_state(s))
 
@@ -386,6 +387,10 @@ def follow_deadline(sid):
 def follow_frame(sid):
     s = _session(sid)
     d = request.get_json()
+    if "image" in d:                    # fast card: one frame per request, several a second
+        if not isinstance(s, fast.Session):
+            abort(400, "this card is checked with two stills every 2 s, not single frames")
+        return jsonify({"ok": s.add_frame(int(d["i"]), float(d.get("t", 0)), base64.b64decode(d["image"].split(",", 1)[-1]))})
     stills = [base64.b64decode(x.split(",", 1)[-1]) for x in d["stills"]]
     s.add_stills(int(d["i"]), stills)
     return jsonify({"ok": True})

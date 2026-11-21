@@ -146,26 +146,3 @@ def test_session_replays_from_tape_without_network(kit, monkeypatch):
     monkeypatch.setenv("GEMINI_BASE_URL", "http://127.0.0.1:9")
     again = signs.replay_session(kit, s.id)
     assert again.result["best"]["name"] == "Traffic"
-
-
-def test_http_path(kit):
-    import server
-    c = server.app.test_client()
-    assert c.get("/signs").status_code == 200
-    st = c.get("/api/signs/status").get_json()
-    assert st["kits"][0]["signs"] == 4 and any(p["id"] == "seals" for p in st["presets"])
-    data = lambda col: "data:image/jpeg;base64," + base64.b64encode(jpeg(col)).decode()
-    sid = c.post("/api/signs/sessions", json={"kit": kit["id"]}).get_json()["id"]
-    i = 0
-    for col in ["red", "yellow", "green"]:
-        for _ in range(3):
-            assert c.post(f"/api/signs/sessions/{sid}/frame", json={"i": i, "t": i / 5, "image": data(col)}).get_json()["ok"]
-            i += 1
-    st = c.post(f"/api/signs/sessions/{sid}/finish", json={}).get_json()
-    assert st["done"] and st["result"]["best"]["name"] == "Traffic"
-    assert c.get(f"/print/signs/{kit['id']}/traffic").status_code == 200
-    # a preset kit: sequences appear once their signs are taught
-    k = c.post("/api/signs/kits", json={"preset": "countdown"}).get_json()
-    for n in ["One", "Two", "Three", "Four", "Five"]:
-        k = c.post(f"/api/signs/kits/{k['id']}/signs", json={"name": n, "image": data("red")}).get_json()
-    assert {q["name"] for q in k["sequences"]} == {"Count up", "Count down", "Odds", "Evens"}

@@ -80,7 +80,7 @@ def decide(body):
             answers[qid] = {"noul": 0.08, "confidence": 0.9}
         elif q["type"] == "choice":
             opts = list(q["criteria"])
-            none = [o for o in opts if "none" in o][0]
+            none = [o for o in opts if "none" in o or o == "other"][0]
             pick = none
             if col:
                 for o in opts:      # an option matches if its text mentions the colour, or by position
