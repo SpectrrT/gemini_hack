@@ -594,7 +594,7 @@ let T = {cam:null, rec:null, chunks:[], t0:0, timer:null};
 function paintStages(events) {                            // whatever stages arrive, in the order they first appear
   const order = [], last = {}; events.forEach(e => { if (!(e.stage in last)) order.push(e.stage); last[e.stage] = e; });
   $('#stages').innerHTML = order.map(st => { const e = last[st];
-    return `<li class="${e.state}"><span class="dot"></span><span><b>${esc(st)}</b><span class="who">${WHO[st] || ''}</span></span><span>${esc(e.detail || e.state)}${e.state !== 'running' ? ` <span class="note">${e.t}s</span>` : ''}</span></li>`; }).join('')
+    return `<li class="${e.state}"><span class="dot"></span><span><b>${esc(st)}</b><span class="who">${/carbon/i.test(e.detail || '') ? 'Carbon' : WHO[st] || ''}</span></span><span>${esc(e.detail || e.state)}${e.state !== 'running' ? ` <span class="note">${e.t}s</span>` : ''}</span></li>`; }).join('')
     || '<li class="idle"><span class="dot"></span><span><b>waiting</b></span><span>Record or drop a clip. The steps are found and drawn here.</span></li>';
 }
 async function runJob(start) {
@@ -607,8 +607,8 @@ async function runJob(start) {
     clearInterval(timer);
     if (j.error) { $('#terr').textContent = j.error; return; }
     const card = await api('/api/cards/' + j.card);
-    showBuiltCard(card);
-    await init(); $('#fcard').value = card.id; await loadCard(card.id);
+    try { showBuiltCard(card); } catch (e) { $('#terr').textContent = 'Card built, but it could not be shown here: ' + e.message; }
+    await init(); $('#fcard').value = card.id; await loadCard(card.id);   // "Check someone" always opens on the card just built
   }, 350);
 }
 function showBuiltCard(card) {
@@ -616,10 +616,15 @@ function showBuiltCard(card) {
   $('#tcardTitle').textContent = card.title;
   const st = card.self_test;
   $('#tcardMeta').textContent = `${card.steps.length} steps` + (st ? ` · self-test ${st.recognised}/${st.of}` : ' · self-test not run') + (card.plan_source ? ` · plan: ${card.plan_source}` : '');
+  // The hand-over button is wired first, so nothing below can leave it dead; it opens the check on THIS card.
+  $('#tgo').onclick = async () => {
+    showTab('follow');
+    if (!CARD || CARD.id !== card.id) { try { $('#fcard').value = card.id; await loadCard(card.id); } catch (e) {} }
+  };
   const draw = () => renderCard($('#tcard'), card, {kf: $('#tshowkf').checked});
   $('#tshowkf').onchange = draw; draw();
-  $('#tdropped').textContent = card.dropped.length ? 'Left off the card: ' + card.dropped.map(d => `${d.action} (${d.reason})`).join(' · ') : '';
-  $('#tgo').onclick = () => showTab('follow');
+  const dropped = card.dropped || [];                     // cards from the frame-by-frame build have no such list
+  $('#tdropped').textContent = dropped.length ? 'Left off the card: ' + dropped.map(d => `${d.action} (${d.reason})`).join(' · ') : '';
 }
 $('#ttape').onclick = () => runJob(() => api('/api/teach', {from_tape: 'tomato'}));
 const buildFrom = (file, name) => { const fd = new FormData(); fd.append('video', file, name || file.name); runJob(() => api('/api/teach', fd)); };
