@@ -94,6 +94,22 @@
   .recbanner { display:none; border:3px solid var(--line); background:#fff3c4; padding:9px 14px; margin-bottom:12px; font-size:18px; font-weight:800; }
   .recbanner small { display:block; font-weight:500; font-size:13px; color:var(--mute); }
   @media (max-width:1100px) { .vs { grid-template-columns:1fr; } .keepbox { max-width:none; } }
+  /* follow-along guide and evidence frames */
+  .fnext { margin-top:12px; }
+  .fnextpic { position:relative; border:3px solid var(--ink, #111); border-radius:18px; overflow:hidden; background:#fff; aspect-ratio:4/3; max-height:300px; display:grid; place-items:center; transition:box-shadow .2s; }
+  .fnextpic img { width:100%; height:100%; object-fit:contain; display:block; }
+  .fnextpic b { position:absolute; left:10px; top:10px; width:44px; height:44px; border-radius:50%; background:var(--ink, #111); color:#fff; font-size:24px; display:grid; place-items:center; z-index:1; }
+  .fnextpic.swap { animation:fnextIn .35s ease-out; } .fnextpic.finished { box-shadow:inset 0 0 0 8px #1f9d55; }
+  .fnextpic.finished::after { content:"\2713"; position:absolute; font-size:150px; font-weight:900; color:#1f9d55; }
+  .fnextpic.finished img, .fnextpic.finished b { opacity:.15; }
+  @keyframes fnextIn { from { transform:scale(.94); opacity:.4; } to { transform:scale(1); opacity:1; } }
+  .evstrip { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .ev { position:relative; width:132px; border:3px solid #1f9d55; border-radius:12px; overflow:hidden; background:#fff; }
+  .ev img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; }
+  .ev b { position:absolute; left:4px; top:4px; min-width:26px; height:26px; padding:0 6px; border-radius:13px; background:#111; color:#fff; font-size:15px; display:grid; place-items:center; }
+  .ev.none { border-color:#d5392b; border-style:dashed; background:#fdecea; }
+  .ev.none .slot { aspect-ratio:4/3; display:grid; place-items:center; color:#d5392b; font-size:44px; font-weight:900; }
+  .ev.doubt { border-color:#e0a100; }
 </style>
 <link rel="icon" type="image/svg+xml" href="/web/logo.svg">
 <link rel="stylesheet" href="/web/wordless.css">
@@ -228,6 +244,7 @@
           <button class="act" id="fdone" disabled>Done (space)</button>
           <span class="clock" id="fclock" title="time since Start">00:00</span>
         </div>
+        <div class="fnext" id="fnext" style="display:none"><span class="lab" id="fnextLab">Do this now</span><div class="fnextpic"><b id="fnextNum"></b><img id="fnextImg" alt=""></div></div>
         <div class="pace" id="pace" title="pace light: hold each step until the bar fills (8 s)"><i></i></div>
         <p class="note" id="fstat"></p>
         <p class="err" id="ferr"></p>
@@ -270,6 +287,7 @@
         <div id="keep" style="display:none"><span class="lab">Keep the card</span>
           <div class="keepbox"><img id="keepqr" alt="QR code that opens the printable card">scan, or <a id="keepurl" target="_blank"></a></div></div>
       </div>
+      <div id="evid" style="display:none; margin-top:14px"><span class="lab">What the camera saw · the frame behind each step</span><div class="evstrip" id="evstrip"></div></div>
       <div class="scope">Checks that each step <b>happened</b>, and in order, not how well it was done.</div>
     </div>
   </div>
@@ -406,7 +424,7 @@ function resetFollow() {
   $('#tl').innerHTML = ''; $('#fstat').textContent = ''; $('#ferr').textContent = ''; $('#sealed').style.display = 'none';
   $('#fstart').disabled = false; $('#fdone').disabled = true; $('#pace').firstElementChild.style.width = '0';
   $('#fclock').textContent = '00:00'; $('#fclock').className = 'clock'; $('#fdeadline').disabled = false;
-  $('#recbanner').style.display = 'none'; $('#keep').style.display = 'none';
+  $('#recbanner').style.display = 'none'; $('#keep').style.display = 'none'; $('#evid').style.display = 'none'; $('#fnext').style.display = 'none';
   $('#base').className = 'base wait'; $('#base').innerHTML = '—<small>Starts with the run on a file recording, so it is ready by the verdict.</small>';
   if (CARD) paintPanels($('#fcardGrid'), {}, null, null);
   idleStatus();
@@ -527,8 +545,34 @@ function paintFollow(s) {
     if (s.now !== F.lastNow) { F.lastNow = s.now; F.nowSince = Date.now(); }
     $('#pace').firstElementChild.style.width = s.now ? Math.min(100, (Date.now() - F.nowSince) / 80) + '%' : '0';
   }
+  paintGuide(s);
   if (s.done && s.verdict) showVerdict(s);
   else if (s.should_end && F.live) finishFollow();        // the person has paused after finishing: nobody has to press Done
+}
+function paintGuide(s) {                                 // follow-along: the next step's picture, large, advancing as steps are seen
+  const box = $('#fnext');
+  if (!s.fast) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const pic = box.querySelector('.fnextpic'), steps = CARD.steps, k = steps.findIndex(x => x.id === s.next);
+  const all = s.next == null && Object.values(s.panels || {}).some(p => p.state === 'seen');
+  pic.classList.toggle('finished', all || !!(s.done && s.verdict && s.verdict.clean));
+  $('#fnextLab').textContent = s.done ? (k >= 0 ? 'This step was missed' : 'Finished') : all ? 'All steps seen' : 'Do this now';
+  const show = k >= 0 ? steps[k] : steps[steps.length - 1];
+  if (show && F.guideStep !== show.id) {
+    F.guideStep = show.id;
+    $('#fnextImg').src = `/cards/${CARD.id}/${show.panel}`;
+    $('#fnextNum').textContent = steps.indexOf(show) + 1;
+    pic.classList.remove('swap'); void pic.offsetWidth; pic.classList.add('swap');
+  }
+}
+function paintEvidence(s) {                              // under the verdict: the camera frame that shows each step
+  const box = $('#evid'), v = s.verdict;
+  if (!s.fast || !v) { box.style.display = 'none'; return; }
+  const ev = v.evidence || s.evidence || {}, unsure = new Set(v.unsure || []);
+  box.style.display = '';
+  $('#evstrip').innerHTML = CARD.steps.map((x, i) => ev[x.id]
+    ? `<div class="ev${unsure.has(x.id) ? ' doubt' : ''}" title="step ${i + 1}: seen in this frame"><b>${i + 1}</b><img src="${ev[x.id]}" alt=""></div>`
+    : `<div class="ev none" title="step ${i + 1}: no frame shows it"><b>${i + 1}</b><div class="slot">✗</div></div>`).join('');
 }
 function paintBase(sh) {
   if (!sh || !sh.baseline) return;
@@ -542,6 +586,7 @@ function showVerdict(s) {
   clearInterval(F.poll); clearInterval(F.tick); clearInterval(F.clock); clearInterval(F.bpoll); F.shown = true;
   $('#fdeadline').disabled = false;
   const v = s.verdict, el = $('#verdict'), sh = s.shell;
+  paintEvidence(s);
   if (sh && sh.baseline && sh.baseline.state === 'running') {            // ours is in; keep asking until the baseline lands
     const sid = s.id;
     F.bpoll = setInterval(async () => {

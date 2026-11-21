@@ -94,6 +94,12 @@ def test_live_state_lights_steps_in_order(card):
     st = s.state()
     assert st["fast"] and [st["panels"][q]["state"] for q in ("q01", "q02", "q03", "q04")] == ["seen", "seen", "pending", "pending"]
     assert st["now"] == "q02" and not st["done"]
+    assert st["next"] == "q03"                                            # the guide shows the third step now
+    assert set(st["evidence"]) == {"q01", "q02"} and st["evidence"]["q01"].startswith(f"/runs/{s.id}/f_0000")
+    import server
+    assert server.app.test_client().get(st["evidence"]["q02"]).status_code == 200
+    v = s.finish(wait_s=20)
+    assert set(v["evidence"]) == {"q01", "q02"} and v["skipped"] == ["q03", "q04"]
 
 
 def test_http_teach_and_follow(fake_api, sandbox):

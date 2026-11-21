@@ -656,6 +656,14 @@ def eval_run():
     return jsonify(res)
 
 
+@app.get("/runs/<sid>/<name>")
+def run_frame(sid, name):
+    """A saved camera frame of a run (the evidence shown under a verdict)."""
+    if not (name.startswith("f_") and name.endswith(".jpg")):
+        abort(404)
+    return send_from_directory(config.RUNS / sid, name)
+
+
 @app.get("/api/proof")
 def proof():
     """The 16-recording eval, re-scored now from the saved answers in fixtures/eval_wide (no video, no API call)."""

@@ -262,14 +262,18 @@ class Session(signs.Session):
             covered, _ = decode.progress(seen, self.want)
             _, ops = decode.align(seen, self.want[:covered])
         marks, extra, got = {sid: ("skipped" if final else "pending") for sid in self.step_ids}, [], {}
+        self._where, k = {}, 0                       # card step -> index in `seen` of the occurrence that matched it
         for o in ops:
             if o["op"] == "match":
                 marks[self.step_ids[o["pos"] - 1]] = "seen"
+                self._where[self.step_ids[o["pos"] - 1]] = k
             elif o["op"] == "wrong":
                 marks[self.step_ids[o["pos"] - 1]] = "wrong"
                 got[self.step_ids[o["pos"] - 1]] = o["got"]
             elif o["op"] == "extra":
                 extra.append(o["got"])
+            if o["op"] != "missing":
+                k += 1
         if final:
             # A step done at a different point in the run was done: call it "moved", not "never happened".
             # (People do loose tasks in their own order; on 16 cooking recordings strict order gave 31 false
@@ -290,11 +294,26 @@ class Session(signs.Session):
             extra = spare
         return marks, extra, got
 
+    def _evidence(self, segs):
+        """For each card step that was seen: the camera frame that shows it best (its URL)."""
+        out = {}
+        with self.lock:
+            for sid, k in getattr(self, "_where", {}).items():
+                if k >= len(segs):
+                    continue
+                g = segs[k]
+                inside = [i for i, t in self.times.items() if g["start"] <= t <= g["end"] and i in self.answers]
+                if inside:
+                    best = max(inside, key=lambda i: self.answers[i]["probs"].get(g["label"], 0.0))
+                    out[sid] = f"/runs/{self.recording or self.id}/f_{best:05d}.jpg"      # a replayed run shows the original frames
+        return out
+
     def state(self):
         st = super().state()
         seen = [s["label"] for s in st["seen"]]
         conf = {}
         marks, extra, _ = self._marks(seen, final=False)
+        evidence = self._evidence(st["seen"])
         with self.lock:
             last = max(self.answers) if self.answers else None
             now = self.answers[last] if last is not None else None
@@ -312,6 +331,8 @@ class Session(signs.Session):
             "now": now_step, "now_conf": now["conf"] if now else 0.0,
             "windows": st["answered"], "total": None, "errors": st["errors"], "waiting": st["waiting"], "dropped": st["dropped"],
             "strip": st["seen"], "extra": extra, "latency": st["latency"],
+            "next": next((sid for sid in self.step_ids if marks[sid] == "pending"), None),      # the step to show the person now
+            "evidence": (self.verdict or {}).get("evidence") or evidence,
             "should_end": bool(st["should_end"] or finished),
             "done": self.done, "verdict": self.verdict, "fatal": self.fatal, "timeline": timeline,
         }
@@ -394,7 +415,9 @@ class Session(signs.Session):
         by_frames = [s["label"] for s in res["seen"]]
         review = self._review() if (config.FAST_REVIEW and backfill_s >= 0 and self.source == "live" and not self.fatal) else None
         seen = review["performed"] if review and "performed" in review else by_frames
-        marks, extra, got = self._marks(seen, final=True)
+        frame_marks0 = self._marks(by_frames, final=True)
+        evidence = self._evidence(res["seen"])       # frames that show each matched step, from the frame-by-frame reading
+        marks, extra, got = self._marks(seen, final=True) if seen is not by_frames else frame_marks0
         doubted = []
         if seen is not by_frames:                    # the frame answers can turn the review's "never happened" into "not sure"
             frame_marks, _, _ = self._marks(by_frames, final=True)
@@ -418,6 +441,7 @@ class Session(signs.Session):
              "out_of_order": moved, "extra": extra, "wrong": got, "order_violations": [], "scores": {}, "thresholds": {},
              "windows": res["frames"] - res["missing_frames"], "missing_windows": [],
              "review": review and {k: review[k] for k in ("ok", "model", "lat", "error") if k in review},
+             "evidence": evidence,
              "by_frames": [name.get(x, x) for x in by_frames],
              "clean": bool(seen) and not skipped and not unsure and not extra and not moved,
              "performed": [name.get(x, x) for x in seen], "latency": res.get("latency"), "notes": notes}
