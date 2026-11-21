@@ -169,7 +169,7 @@ video { width:100%; background:#0c0d0f; display:block; aspect-ratio:16/9; border
 .guide { position:relative; } .guide::after { content:""; position:absolute; inset:8%; border:1.5px dashed rgba(255,255,255,.7); border-radius:8px; pointer-events:none; }
 
 /* live indicator: pixel-grid loader + shimmer label, shown only while a run is watching or deciding */
-.live { display:none; align-items:center; gap:8px; margin-left:auto; font:500 12.5px var(--sans); text-transform:none; letter-spacing:0; }
+.box h2 .live { display:none; align-items:center; gap:8px; margin-left:auto; font:500 12.5px var(--sans); text-transform:none; letter-spacing:0; }
 .box:has(#go:disabled) .live { display:inline-flex; }
 .pix { display:grid; grid-template-columns:repeat(3, 4px); gap:1.5px; }
 .pix i { width:4px; height:4px; border-radius:1px; background:var(--ink); opacity:.15; animation:pixel-on .65s ease-in-out infinite; }
@@ -520,7 +520,7 @@ button.mini:not(:disabled):active { translate:none; scale:.96; }
 .panel.now::after { box-shadow:inset 0 0 0 6px var(--sun); }
 
 /* one "working" signal: the loader inside the verdict (the duplicate in the camera head is hidden) */
-.live { display:none !important; }
+.box h2 .live { display:none !important; }   /* scoped: .pill.live in the status line must stay visible */
 @keyframes pix-sweep {
   0%   { background:var(--ink); box-shadow:0 9px var(--ink), 0 18px var(--ink), 9px 0 #d8d2e2, 9px 9px #d8d2e2, 9px 18px #d8d2e2, 18px 0 #d8d2e2, 18px 9px #d8d2e2, 18px 18px #d8d2e2; }
   33%  { background:#d8d2e2; box-shadow:0 9px #d8d2e2, 0 18px #d8d2e2, 9px 0 var(--ink), 9px 9px var(--ink), 9px 18px var(--ink), 18px 0 #d8d2e2, 18px 9px #d8d2e2, 18px 18px #d8d2e2; }
@@ -567,3 +567,16 @@ button.mini { min-height:32px; }
 /* ---- logo: a speech bubble holding an eye (web/logo.svg, also the favicon) + lowercase wordmark */
 header h1 { font:800 30px/1 var(--display); letter-spacing:-.045em; text-transform:lowercase; gap:9px; }
 header h1::before { width:36px; height:36px; border-radius:0; background:url("/web/logo.svg") center / contain no-repeat; margin-bottom:-4px; }
+
+/* ---- one flow: two numbered steps in the nav, Proof and Prep kept quiet; operator controls folded away */
+nav button.quiet { font-weight:600; font-size:13px; color:var(--ink-3); padding-inline:12px; }
+nav button.quiet.on { color:var(--surface); }
+nav button[hidden] { display:none; }
+#tdrop { border-radius:var(--r-cell); transition:box-shadow .15s ease; }
+#tdrop.over { box-shadow:0 0 0 4px var(--sun); }
+#fmore { margin-top:10px; border-top:2px dashed var(--line-strong); padding-top:8px; }
+#fmore summary { cursor:pointer; font:700 13px/1.4 var(--sans); color:var(--ink-2); padding:4px 0; list-style-position:inside; }
+#follow .box > .row .clock { margin-left:auto; font-size:38px; }
+.panel.extra { --frame:var(--sun); box-shadow:0 0 0 2px var(--line); z-index:1; } .panel.extra .mark { background:var(--sun); color:var(--ink); }
+#follow .box > video { margin-bottom:4px; }
+.stages li.idle { color:var(--ink-3); background:var(--inset); } .stages li.idle b { color:var(--ink-3); }
