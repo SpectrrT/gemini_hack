@@ -27,6 +27,13 @@ MAX_FRAMES = 420          # teaching frames sent to the Decisions API (a long cl
 TEACH_FPS = 5.0
 OTHER = "other"
 
+REVIEW_PROMPT = """The image is a numbered reference sheet: each numbered picture is one step or pose of a routine.
+The video shows a person, possibly a different person in a different place, doing the routine. Watch the whole
+video and list, in the order performed, the number of every reference picture the person clearly performs.
+If they perform the same one again later, list its number again. Leave out transitions and anything that is
+not on the sheet. Judge by hands, fingers, arms and objects, not by the background.
+Answer with JSON only: {"performed": [<number>, ...]}"""
+
 NAME_PROMPT = """You are watching one person demonstrate something once so that someone else can repeat it.
 It may be a hands-on task with objects (steps of several seconds each) or a quick series of hand, arm or body
 poses (each held for a second or less). List every DISTINCT step or pose you can see, in the order it first
@@ -38,14 +45,15 @@ Answer with JSON only: [{"name": "<2 to 6 words>", "look": "<what it looks like:
 def _name(b, clip):
     def call():
         parts = [gemini.inline(clip.read_bytes(), "video/mp4"), {"text": NAME_PROMPT}]
-        try:                                         # naming is easy for the model: low thinking keeps the wait short
-            d = gemini.generate(config.MODELS["hydrogen"], parts,
-                                {"responseMimeType": "application/json", "thinkingConfig": {"thinkingLevel": "low"}}, tries=1)
-        except gemini.ApiError as e:
-            if e.status != 400:
-                raise
+        try:                                         # Carbon: it separates look-alike poses better, and was faster here
+            d = gemini.generate(config.MODELS["carbon"], parts, {"responseMimeType": "application/json"}, timeout=90, tries=1)
+            model = config.MODELS["carbon"]
+        except gemini.NoCredit:
+            raise
+        except gemini.ApiError:                      # Carbon unavailable or too slow: Hydrogen names the steps instead
             d = gemini.generate(config.MODELS["hydrogen"], parts, {"responseMimeType": "application/json"})
-        return {"poses": gemini.json_of(d), "lat": d["_latency"]}
+            model = config.MODELS["hydrogen"]
+        return {"poses": gemini.json_of(d), "lat": d["_latency"], "model": model}
     r = gemini.taped(b.key("poses"), call)
     poses = []
     for k, p in enumerate(r["poses"] if isinstance(r["poses"], list) else []):
@@ -54,7 +62,7 @@ def _name(b, clip):
             poses.append({"id": f"p{k + 1:02d}", "name": name, "look": str(p.get("look") or p.get("done_when") or "").strip()})
     if not poses:
         raise ValueError("Hydrogen saw no steps in the clip")
-    b.emit("name", "done", f"{len(poses)} distinct steps seen" + (f" in {r['lat']} s" if r.get("lat") else ""),
+    b.emit("name", "done", f"{len(poses)} distinct steps seen" + (f" in {r['lat']} s" if r.get("lat") else "") + (f" by {r['model']}" if r.get("model") else ""),
            steps=[p["name"] for p in poses])
     return poses
 
@@ -268,19 +276,60 @@ class Session(signs.Session):
             "done": self.done, "verdict": self.verdict, "fatal": self.fatal, "timeline": timeline,
         }
 
+    def _review(self):
+        """Carbon watches the saved frames of the whole run next to the reference sheet and lists what was performed."""
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        frames = sorted(self.dir.glob("f_*.jpg"))
+        if len(frames) < 3:
+            return None
+        with self.lock:
+            span = max(self.times.values()) - min(self.times.values()) if self.times else 0
+        rate = max(1.0, min(10.0, (len(frames) - 1) / span)) if span > 0 else 5.0
+        ids = signs.sign_ids(self.kit)
+
+        def call():
+            with tempfile.TemporaryDirectory() as tmp:
+                clip = Path(tmp) / "run.mp4"
+                subprocess.run([video.ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-framerate", f"{rate:.2f}", "-pattern_type", "glob",
+                                "-i", str(self.dir / "f_*.jpg"), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-vf", "scale=-2:360", str(clip)], check=True)
+                d = gemini.generate(config.MODELS["carbon"], [gemini.inline(signs.sheet_bytes(self.kit), "image/jpeg"),
+                                                              gemini.inline(clip.read_bytes(), "video/mp4"), {"text": REVIEW_PROMPT}],
+                                    {"responseMimeType": "application/json"}, timeout=config.FAST_REVIEW_TIMEOUT_S, tries=1)
+            out = gemini.json_of(d)
+            nums = out.get("performed") if isinstance(out, dict) else out
+            performed = [ids[int(n) - 1] for n in nums or [] if str(n).strip().lstrip("-").isdigit() and 1 <= int(n) <= len(ids)]
+            return {"ok": True, "performed": performed, "lat": d["_latency"], "model": config.MODELS["carbon"]}
+        fut = signs._pool.submit(gemini.taped, f"review/carbon/{self.kit['id']}/{self.id}", call)
+        try:
+            return fut.result(timeout=config.FAST_REVIEW_TIMEOUT_S + 5)
+        except Exception as e:                       # no answer in time, or an unreadable one: the frame answers stand
+            return {"ok": False, "error": f"{type(e).__name__}: {e}"[:160]}
+
     def finish(self, wait_s=3.0, backfill_s=6.0):
         if self.verdict is not None:
             return self.verdict
         res = super().finish(wait_s=wait_s, backfill_s=max(backfill_s, 0.0))
-        seen = [s["label"] for s in res["seen"]]
+        by_frames = [s["label"] for s in res["seen"]]
+        review = self._review() if (config.FAST_REVIEW and backfill_s >= 0 and self.source == "live" and not self.fatal) else None
+        seen = review["performed"] if review and "performed" in review else by_frames
         marks, extra, got = self._marks(seen, final=True)
+        doubted = []
+        if seen is not by_frames:                    # the frame answers can turn the review's "never happened" into "not sure"
+            frame_marks, _, _ = self._marks(by_frames, final=True)
+            for sid in self.step_ids:
+                if marks[sid] in ("skipped", "wrong") and frame_marks[sid] in ("seen", "moved"):
+                    marks[sid] = "doubt"
+                    got.pop(sid, None)
+                    doubted.append(sid)
         name = {g["id"]: g["name"] for g in self.kit["signs"]}
         num = lambda sid: f"step {self.step_ids.index(sid) + 1}"
         skipped = [sid for sid in self.step_ids if marks[sid] in ("skipped", "wrong")]
         moved = [sid for sid in self.step_ids if marks[sid] == "moved"]
-        unsure = []
-        if res["frames"] and res["missing_frames"] > res["frames"] * 0.2:      # too many frames unanswered to say "never"
-            unsure, skipped = skipped, []
+        unsure = list(doubted)
+        if seen is by_frames and res["frames"] and res["missing_frames"] > res["frames"] * 0.2:   # too many frames unanswered to say "never"
+            unsure, skipped = unsure + skipped, []
         parts = []
         for sid in skipped:
             parts.append(f"{num(sid)} was {name.get(got[sid], '?')}, not {name[self.card['steps'][self.step_ids.index(sid)]['pose']]}"
@@ -295,11 +344,15 @@ class Session(signs.Session):
             parts = ["nothing recognised"]
         elif not parts:
             parts = [f"all {len(self.step_ids)} steps seen, in order"]
-        if res["missing_frames"]:
+        if res["missing_frames"] and seen is by_frames:
             parts.append(f"{res['missing_frames']} frames got no answer")
+        if review and "error" in review:
+            parts.append("whole-run review did not answer")
         v = {"seen": [sid for sid in self.step_ids if marks[sid] == "seen"], "unsure": unsure, "skipped": skipped,
              "out_of_order": moved, "extra": extra, "wrong": got, "order_violations": [], "scores": {}, "thresholds": {},
-             "windows": res["frames"] - res["missing_frames"], "missing_windows": [], "review": None,
+             "windows": res["frames"] - res["missing_frames"], "missing_windows": [],
+             "review": review and {k: review[k] for k in ("ok", "model", "lat", "error") if k in review},
+             "by_frames": [name.get(x, x) for x in by_frames],
              "clean": bool(seen) and not skipped and not unsure and not extra and not moved,
              "performed": [name.get(x, x) for x in seen], "latency": res.get("latency"),
              "text": "; ".join(parts)}

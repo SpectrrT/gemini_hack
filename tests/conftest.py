@@ -16,6 +16,7 @@ def sandbox(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "TAPE", tmp_path / "tape")
     monkeypatch.setattr(config, "VIDEO_DIRS", [tmp_path / "videos"])
     monkeypatch.setattr(config, "DECISIONS_MIN_GAP_S", 0.0)
+    monkeypatch.setattr(config, "FAST_REVIEW", False)       # the fake cannot read a reference sheet; tests stub the review
     monkeypatch.setattr(gemini, "tape", gemini.Tape(tmp_path / "tape"))
     (tmp_path / "videos").mkdir()
     return tmp_path

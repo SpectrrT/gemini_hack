@@ -13,7 +13,8 @@ VIDEO_DIRS = [ROOT / "research" / "data" / "captaincook", HOME / "data"]
 MODELS = {
     "hydrogen": os.environ.get("WORDLESS_HYDROGEN", "gemini-4-hydrogen"),      # names the steps; one-call baseline
     "argon": os.environ.get("WORDLESS_ARGON", "gemini-4-argon"),               # plans the card: optional steps, order links
-    "image": os.environ.get("WORDLESS_IMAGE", "gemini-3.1-flash-lite-image"),  # keyframe -> line-art panel
+    "carbon": os.environ.get("WORDLESS_CARBON", "gemini-4-carbon"),            # fast path: names the steps; reviews the verdict
+    "image": os.environ.get("WORDLESS_IMAGE", "gemini-3-pro-image"),           # keyframe -> line-art panel (the lite model added hands)
     "decision": os.environ.get("WORDLESS_DECISION", "gemini-decision-1"),      # locate, letters gate, self-test, live check
 }
 
@@ -36,3 +37,10 @@ SIGNS_MIN_GAP_S = float(os.environ.get("WORDLESS_SIGNS_GAP", 0.0))   # no spacin
 # into "not sure" (rule "review" in docs/EVAL.md, added after the 16-recording eval). WORDLESS_REVIEW=0 turns it off.
 REVIEW = os.environ.get("WORDLESS_REVIEW", "1") != "0"
 REVIEW_TIMEOUT_S = float(os.environ.get("WORDLESS_REVIEW_TIMEOUT", 45))
+
+# Fast path, optional: a larger model watches the whole run once it is over and its reading decides the verdict;
+# the frame answers can then only turn its "never happened" into "not sure". OFF by default: measured on two runs,
+# Carbon, Neon and Hydrogen each took 16 to 50 s and every one of them missed a 1.2 s step that the frame-by-frame
+# answers caught. WORDLESS_FAST_REVIEW=1 turns it on.
+FAST_REVIEW = os.environ.get("WORDLESS_FAST_REVIEW", "0") == "1"
+FAST_REVIEW_TIMEOUT_S = float(os.environ.get("WORDLESS_FAST_REVIEW_TIMEOUT", 40))

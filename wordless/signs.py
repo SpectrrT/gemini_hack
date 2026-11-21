@@ -23,9 +23,9 @@ from PIL import Image, ImageDraw
 from . import card as cards
 from . import config, decode, gemini, video
 
-CELL = (400, 300)
+CELL = (480, 360)
 NONE_KEY = "other"            # the catch-all choice, named as the Decisions API guide asks
-FRAME_SIDE = 512                 # frames are downsized to this before they are sent
+FRAME_SIDE = 640                 # frames are downsized to this before they are sent
 MAX_INFLIGHT = 24                # frames waiting for an answer; beyond this new frames are dropped, not queued
 IDLE_END_S = 1.6                 # a pause this long after the last sign ends the sequence (live)
 _pool = cf.ThreadPoolExecutor(MAX_INFLIGHT)
@@ -35,7 +35,8 @@ _sessions = {}
 
 DRAW_PROMPT = ("Redraw this photo as a clean black line drawing on a white background, in the style of a wordless "
                "assembly-instruction sheet. Keep the exact pose of the hands, fingers and arms. Show only the person's "
-               "upper body and hands. No shading, no background objects, no letters, no numbers, no words.")
+               "upper body and hands. Draw exactly the hands that are in the photo: do not add, remove or move a hand or a "
+               "finger, and do not add objects. No shading, no background objects, no letters, no numbers, no words.")
 
 
 # ---------------------------------------------------------------- kits

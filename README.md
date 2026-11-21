@@ -43,6 +43,12 @@ that step as never happened. That is one clip, the same person and kitchen: a sm
 number. Answer time was 1.6 s per frame on a quiet key and up to 8 s when other jobs shared it. The 16-recording
 numbers above are for the 2 s window card with review, which older cards still use.
 
+**Larger models (measured today, one clip).** Carbon now names the steps (15 to 23 s, and it separated more
+steps than Hydrogen did in 28 s). `gemini-3-pro-image` now draws the panels: the lite image model added a hand
+that was not in the photo. Teaching the 25 s clip dropped from 75 s to 42 s. For the check itself a larger model
+did not help: asked to watch a whole run, Carbon, Neon and Hydrogen each took 16 to 50 s and all missed a 1.2 s
+step that the frame-by-frame Decisions answers caught, so that review is off by default.
+
 **Not yet run:** a routine taught and followed from a webcam at a table; the table gate on real clips.
 
 ## Run it (no key needed)
@@ -144,7 +150,7 @@ recording, so a session filmed at the table can be replayed if the network fails
 | follow | `gemini-decision-1` | Card image plus a clip or two stills: which panel is this? Once a second. |
 | verdict | code | Heaviest-run rule in `wordless/tracker.py`. Seen, never happened, or not sure. |
 | review | `gemini-4-hydrogen` | One call on the whole clip (or the session's saved stills) checks the verdict: it decides "never happened"; the card can only make that "not sure". |
-| fast teach | `gemini-4-hydrogen`, `gemini-decision-1`, image model | Hydrogen lists the distinct steps it sees; the Decisions API labels every frame; code finds the steps in order and their clearest frames; the image model draws them. |
+| fast teach | `gemini-4-carbon`, `gemini-decision-1`, `gemini-3-pro-image` | Carbon lists the distinct steps it sees; the Decisions API labels every frame; code finds the steps in order and their clearest frames; the image model draws them. |
 | fast follow | `gemini-decision-1` | Reference sheet plus one camera frame, five a second: which step? Code lines the answers up against the card. |
 
 The verdict is computed from every buffered window when the follower is done. Windows whose call failed or

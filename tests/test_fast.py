@@ -119,3 +119,24 @@ def test_http_teach_and_follow(fake_api, sandbox):
     done = c.post(f"/api/follow/{st['id']}/finish", json={}).get_json()
     assert done["done"] and done["verdict"]["clean"] and done["shell"]["questions"] == 6, done
     assert c.get("/signs").status_code == 404
+
+
+def test_whole_run_review_decides_and_frames_can_only_add_doubt(card, monkeypatch):
+    from wordless import config, fast
+    monkeypatch.setattr(config, "FAST_REVIEW", True)
+    poses = [s["pose"] for s in card["steps"]]                            # red, green, red, blue
+    # frames miss green (shown too briefly), the review saw it: cleared
+    monkeypatch.setattr(fast.Session, "_review", lambda self: {"ok": True, "performed": poses, "model": "carbon", "lat": 9})
+    _, v = perform(card, ["red", "dark", "red", "blue"])
+    assert v["clean"] and v["by_frames"] != v["performed"] and v["review"]["ok"], v
+    # frames saw every step, the review says green never happened: not sure, never a flat "never happened"
+    monkeypatch.setattr(fast.Session, "_review", lambda self: {"ok": True, "performed": [poses[0], poses[2], poses[3]]})
+    _, v = perform(card, ["red", "green", "dark", "red", "blue"])
+    assert v["unsure"] == ["q02"] and not v["skipped"] and "not sure about step 2" in v["text"], v
+    # both agree it never happened
+    _, v = perform(card, ["red", "dark", "red", "blue"])
+    assert v["skipped"] == ["q02"] and v["text"] == "step 2 never happened", v
+    # the review fails: the frame answers stand, and the verdict says so
+    monkeypatch.setattr(fast.Session, "_review", lambda self: {"ok": False, "error": "TimeoutError"})
+    _, v = perform(card, ["red", "dark", "red", "blue"])
+    assert v["skipped"] == ["q02"] and v["text"].endswith("whole-run review did not answer"), v
