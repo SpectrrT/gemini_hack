@@ -190,6 +190,91 @@ steps of this recipe by hand, so it does not carry to another card. all_three ha
 "never happened" (1) and the most "not sure" (26). card_and_text does not help: the two window checkers
 share the short-step problem, and it loses a skip.
 
+## Frame by frame
+
+Question: does checking single stills, several a second, beat the 2-second-window card on the same 16
+recordings? Run on Nov 21 2026 with `wordless/signs.py` (`signs.from_card` then `signs.run_video`, 2 stills a
+second, follow mode against the card order). Each still is one Decisions question against a reference sheet
+made of the card's keyframe photos, not the line-art panels. 12,656 stills; 12 got no answer after a second
+attempt. All 16 recordings ran. Decoder settings are the ones in `wordless/decode.py`, unchanged.
+
+Two readings of each result:
+
+- **In order**: the product's own answer. A step the alignment against the card order reports as missing or
+  wrong counts as "never happened".
+- **Order-free**: a step counts as seen when any decoded segment carries its label, wherever it falls. The
+  toppings of this recipe may be added in any order, so this is the fair reading for cooking.
+
+Neither reading has a "not sure" answer.
+
+| Set | Method | N | Skipped steps flagged | False "never happened" / performed steps | Recordings with a false "never happened" | "Not sure" | Verdict fully right |
+|---|---|---|---|---|---|---|---|
+| All 16 | Card, 2 s windows | 16 | 5/6 | 17/138 | 11/16 | 6 | 3/16 |
+| All 16 | One call | 16 | 6/6 | 12/138 | 3/16 | 0 | 13/16 |
+| All 16 | Card + review (ships) | 16 | 5/6 | 4/138 | 3/16 | 9 | 13/16 |
+| All 16 | Frame by frame, in order | 16 | 5/6 | 31/138 | 15/16 | 0 | 1/16 |
+| All 16 | Frame by frame, order-free | 16 | 5/6 | 12/138 | 10/16 | 0 | 6/16 |
+| 12 never scored before | Card, 2 s windows | 12 | 0/1 | 15/107 | 10/12 | 3 | 1/12 |
+| 12 never scored before | One call | 12 | 1/1 | 6/107 | 2/12 | 0 | 10/12 |
+| 12 never scored before | Card + review (ships) | 12 | 0/1 | 2/107 | 2/12 | 5 | 10/12 |
+| 12 never scored before | Frame by frame, in order | 12 | 0/1 | 22/107 | 11/12 | 0 | 1/12 |
+| 12 never scored before | Frame by frame, order-free | 12 | 0/1 | 7/107 | 7/12 | 0 | 5/12 |
+| 14 not used for tuning | Card, 2 s windows | 14 | 1/2 | 17/124 | 11/14 | 6 | 1/14 |
+| 14 not used for tuning | One call | 14 | 2/2 | 12/124 | 3/14 | 0 | 11/14 |
+| 14 not used for tuning | Card + review (ships) | 14 | 1/2 | 4/124 | 3/14 | 9 | 11/14 |
+| 14 not used for tuning | Frame by frame, in order | 14 | 1/2 | 29/124 | 13/14 | 0 | 1/14 |
+| 14 not used for tuning | Frame by frame, order-free | 14 | 1/2 | 11/124 | 9/14 | 0 | 5/14 |
+
+**Plainly: read in order, frame by frame is much worse than the 2 s card. Read order-free, it is a little
+better than the 2 s card alone, and still far worse than what ships (card + review).**
+
+- **In order** it accuses someone of skipping a step in 15 of 16 recordings (31 false "never happened").
+  People season in a different order from the teaching clip, and the alignment turns every swap into a
+  missing step. This reading should not be used for routines whose steps can be reordered.
+- **Order-free** it makes 12 false "never happened" against the card's 17 (7 against 15 on the 12 new
+  recordings) and gets 6 of 16 verdicts fully right against the card's 3. The card also answers "not sure"
+  6 times; frame by frame never does.
+- **Same weakness, different step.** Inside the labelled spans, stills name slicing right 97% of the time
+  and herbs 28% (255 of 486 herbs stills were called salt). The photo sheet confuses the sprinkle steps just
+  as the line-art sheet does; with photos the errors land on pepper (9 of the 12 order-free false "never
+  happened" are pepper or plate) instead of herbs and salt.
+- **Skips**: 5 of 6 flagged in both readings, the same as the card. The miss is again 12_38 (tomato held at
+  the sink, not rinsed).
+- **Speed**: one still asked on its own took a median 0.78 s (25 stills, one at a time), against about
+  0.5 s for a 2 s window question. Inside a full recording run with up to 12 questions in flight the median
+  was 2.2 s (12_51 run alone). The answers saved in the fixtures were recorded with 15 recordings running
+  at once on one laptop, where the median rose to 7.7 s and 1,085 stills first timed out on the local
+  network; those were asked again and all but 12 answered. So a still can be answered in under a second,
+  and at 2 stills a second the check reacts about every 0.5 s plus that latency, against every 2 s for
+  windows. The gain is reaction time, not accuracy.
+
+Per recording:
+
+| Recording | Labels: skipped | In order: skips flagged | In order: false "never happened" | Order-free: skips flagged | Order-free: false "never happened" | Stills | Unanswered |
+|---|---|---|---|---|---|---|---|
+| 12_2 | none | n/a | 2 (pepper, cheese) | n/a | 1 (pepper) | 857 | 0 |
+| 12_5 | none | n/a | 2 (pepper, cheese) | n/a | 1 (pepper) | 954 | 2 |
+| 12_9 | none | n/a | 2 (pepper, cheese) | n/a | 0 | 903 | 0 |
+| 12_10 | none | n/a | 1 (pepper) | n/a | 0 | 787 | 2 |
+| 12_12 | none | n/a | 1 (pepper) | n/a | 0 | 1069 | 0 |
+| 12_13 | none | n/a | 1 (pepper) | n/a | 0 | 1051 | 2 |
+| 12_15 | none | n/a | 1 (pepper) | n/a | 1 (pepper) | 925 | 1 |
+| 12_16 | none | n/a | 0 | n/a | 0 | 671 | 0 |
+| 12_19 | none | n/a | 1 (pepper) | n/a | 0 | 759 | 0 |
+| 12_26 | oil | 1/1 | 4 (plate, pepper, salt, cheese) | 1/1 | 2 (plate, pepper) | 658 | 1 |
+| 12_38 | rinse | 0/1 | 3 (dry, pepper, cheese) | 0/1 | 1 (pepper) | 716 | 1 |
+| 12_41 | none | n/a | 3 (plate, salt, cheese) | n/a | 2 (plate, salt) | 941 | 1 |
+| 12_43 | salt, herbs, cheese, oil | 4/4 | 1 (pepper) | 4/4 | 1 (pepper) | 401 | 1 |
+| 12_48 | none | n/a | 4 (dry, slice, pepper, salt) | n/a | 1 (dry) | 601 | 1 |
+| 12_51 | none | n/a | 2 (plate, pepper) | n/a | 1 (pepper) | 479 | 0 |
+| 12_119 | none | n/a | 3 (dry, herbs, cheese) | n/a | 1 (dry) | 884 | 0 |
+
+Re-score without the API:
+
+```bash
+.venv/bin/python scripts/eval_frames.py check
+```
+
 ## Re-check without the API
 
 ```bash
