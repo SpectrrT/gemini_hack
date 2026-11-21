@@ -32,8 +32,6 @@ commit is at 11:11 AM that day and the git history covers the whole build.
   recorded API answers in `tape/` and `fixtures/`. The 16-recording eval was run today.
 - **Not ours:** the CaptainCook4D footage and human labels the eval is scored against (a public dataset, see
   [docs/LICENCES.md](docs/LICENCES.md)), the Gemini models, and the libraries in `requirements.txt`.
-- Some comments mention `research/feasibility/...`. That was a scratch folder of API experiments run today at
-  the venue to learn the request and response shapes; it is not part of this repository.
 
 ## State of the evidence
 
