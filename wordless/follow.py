@@ -32,7 +32,7 @@ def get(sid):
 
 
 class Session:
-    def __init__(self, card, source, recording=None, use_own_thresholds=False):
+    def __init__(self, card, source, recording=None, use_own_thresholds=False, review=None):
         self.id = time.strftime("%H%M%S-") + uuid.uuid4().hex[:4]
         self.card, self.source, self.recording = card, source, recording
         thr = card.get("thresholds") if use_own_thresholds else None
@@ -47,6 +47,7 @@ class Session:
         self.done = False
         self.verdict = None
         self.fatal = None
+        self.review = config.REVIEW if review is None else review
         self.started = time.time()
         _sessions[self.id] = self
 
@@ -96,6 +97,24 @@ class Session:
             fn = lambda: checker.classify_clip(self.card, (lambda: clip.read_bytes()) if clip else None, key=key)
         self._record(i, fn)
 
+    def _second_opinion(self, timeout=config.REVIEW_TIMEOUT_S):
+        """One Hydrogen call on the whole clip (the file, or this live session's saved stills)."""
+        from . import baseline
+        rec = self.recording if self.source == "replay" else self.id
+        if self.review == "tape":                           # a recorded run played back: saved answer only, no call
+            return gemini.tape.get_json(f"baseline/hydrogen/{self.card['id']}/{rec}")
+        if self.source == "live" and len(self.stills) < 2:
+            return None
+        fut = _pool.submit(baseline.hydrogen_one_call, self.card, rec)
+        try:
+            return fut.result(timeout=timeout)
+        except cf.TimeoutError:
+            return {"error": f"no answer in {timeout:.0f} s"}
+        except gemini.TapeMiss:
+            return None                                     # replay mode and never recorded: nothing to add
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"[:160]}
+
     # ------------------------------------------------------------ reading
     def state(self):
         with self.lock:
@@ -126,11 +145,13 @@ class Session:
                     continue
                 key = f"follow/{self.card['id']}/{self.id}/still/{i:04d}"
                 self._record(i, lambda i=i: checker.classify_stills(self.card, self.stills[i], key=key, timeout=5, tries=1))
+        second = self._second_opinion() if self.review and not self.fatal else None
         with self.lock:
             asked = set(self.stills) | set(self.errors) | set(self.pending)
             missing = sorted(asked - set(self.answers))
             v = self.tracker.verdict()
             v["missing_windows"] = missing
+            apply_review(self.card, v, second, optional=self.tracker.optional)
             if missing:                                     # could the unanswered windows be hiding the step?
                 for sid in list(v["skipped"]):
                     what_if = Tracker(self.tracker.step_ids, thresholds=self.tracker.thresholds)
@@ -151,6 +172,45 @@ class Session:
         return v
 
 
+def apply_review(card, v, second, optional=()):
+    """Whole-clip review (rule "review" in docs/EVAL.md). The window checker confuses look-alike steps, so on
+    its own it reported performed steps as "never happened". One Hydrogen call on the whole clip now decides:
+      it says performed                      -> seen
+      it says not performed, card saw it     -> not sure
+      it says not performed, card did not    -> never happened
+    `second` is {"skipped": [...], "lat": s}, or {"error": text} / None when the review could not run; the
+    card's own verdict then stands and the verdict says so."""
+    v["card_verdict"] = {"seen": list(v["seen"]), "unsure": list(v["unsure"]), "skipped": list(v["skipped"])}
+    if not second:
+        v["review"] = None
+        return v
+    if "error" in second:
+        v["review"] = {"ok": False, "error": second["error"]}
+        return v
+    not_done = set(second["skipped"])
+    card_seen = set(v["seen"])
+    seen, unsure, skipped = [], [], []
+    for sid in cards.step_ids(card):
+        if sid not in not_done:
+            seen.append(sid)
+        elif sid in optional:
+            continue
+        elif sid in card_seen:
+            unsure.append(sid)
+        else:
+            skipped.append(sid)
+    before = v["card_verdict"]
+    v["review"] = {"ok": True, "model": config.MODELS["hydrogen"], "lat": second.get("lat"),
+                   "cleared": [s for s in before["skipped"] + before["unsure"] if s in seen],
+                   "doubted": [s for s in unsure if s in card_seen]}
+    order = {sid: n for n, sid in enumerate(v["seen"])}           # keep the order the card saw them in
+    v["seen"] = sorted(seen, key=lambda s: order.get(s, len(order)))
+    v["unsure"], v["skipped"] = unsure, skipped
+    v["order_violations"] = [p for p in v["order_violations"] if p[0] in card_seen and p[1] in card_seen]
+    v["clean"] = not skipped and not unsure and not v["order_violations"]
+    return v
+
+
 def verdict_text(card, v):
     num = lambda sid: f"panel {cards.panel_number(card, sid)}"
     parts = []
@@ -162,9 +222,15 @@ def verdict_text(card, v):
         parts.append(f"{num(b)} came before {num(a)}")
     if v.get("missing_windows"):
         parts.append(f"{len(v['missing_windows'])} windows got no answer")
+    rv = v.get("review")
+    tail = ""
+    if rv and rv.get("ok") and rv["cleared"]:
+        tail = " (whole-clip review cleared " + ", ".join(num(s) for s in rv["cleared"]) + ")"
+    elif rv and not rv.get("ok"):
+        tail = " (whole-clip review did not run)"
     if not parts:
-        return f"all {len(v['seen'])} panels seen"
-    return "; ".join(parts)
+        return f"all {len(v['seen'])} panels seen" + tail
+    return "; ".join(parts) + tail
 
 
 # ---------------------------------------------------------------- replay
@@ -186,10 +252,10 @@ def recording_windows(card, rec, workdir=None):
     raise FileNotFoundError(f"recording '{rec}': no video file and nothing on tape for card '{card['id']}'")
 
 
-def replay(card, rec, speed=8.0, use_own_thresholds=False, block=False):
+def replay(card, rec, speed=8.0, use_own_thresholds=False, block=False, review=None):
     """Feed a recording through the checker at `speed` x real time (0 = as fast as possible)."""
     kind, idx, clips = recording_windows(card, rec)
-    s = Session(card, "replay", recording=rec, use_own_thresholds=use_own_thresholds)
+    s = Session(card, "replay", recording=rec, use_own_thresholds=use_own_thresholds, review=review)
     s.total = len(idx)
 
     def run():

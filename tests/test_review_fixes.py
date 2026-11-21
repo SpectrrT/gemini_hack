@@ -57,7 +57,7 @@ def test_windows_still_unanswered_at_finish_never_become_never_happened(card, fa
             raise gemini.ApiError(-1, "network: timed out")
         return real(blocks, questions, **k)
     monkeypatch.setattr(gemini, "decide", decide)
-    s = follow.Session(card, "live")
+    s = follow.Session(card, "live", review=False)      # this test is about the window logic alone
     seq = ["red"] * 3 + ["green"] * 3 + ["blue"] * 3
     for i, col in enumerate(seq):
         s.add_stills(i, [still(fake_api.COLOURS[col])] * 2)

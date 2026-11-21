@@ -350,7 +350,7 @@ def follow_recorded():
         abort(400, "No recorded run for this card yet. Finish one follow session first.")
     answers, missing = _saved_answers(c, run["recording"])
     speed = float(d.get("speed") or 8)
-    s = follow.Session(c, "replay", recording=run["recording"])
+    s = follow.Session(c, "replay", recording=run["recording"], review="tape")
     s.total = len(answers) + len([i for i in missing if i not in answers])
     sh = _shell(s, run["input"], True, d.get("deadline_s"), recorded=run["label"])
     h = gemini.tape.get_json(f"baseline/hydrogen/{c['id']}/{run['recording']}")     # saved answer only: no call is made here

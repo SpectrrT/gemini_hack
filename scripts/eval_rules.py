@@ -98,11 +98,14 @@ def rules(ids, C, T, A, H, c_mass):
     v["sprinkle_group"] = g
 
     v["one_call_veto"] = {s: SEEN if H[s] == SEEN else (UNSURE if SEEN in (C[s], T[s]) else NEVER) for s in ids}
+    # the rule built into the product (wordless/follow.py): no text-only checker runs in a session, so only the
+    # card can turn the one call's "not performed" into "not sure"
+    v["review"] = {s: SEEN if H[s] == SEEN else (UNSURE if C[s] == SEEN else NEVER) for s in ids}
     return v
 
 
 ORDER = ("card", "text", "one_call", "confirmed", "card_and_text", "all_three", "averaged_confirmed",
-         "sprinkle_group", "one_call_veto")
+         "sprinkle_group", "one_call_veto", "review")
 
 
 def run():
