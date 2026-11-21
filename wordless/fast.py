@@ -179,6 +179,7 @@ def build(video_path, card_id=None, title="Routine", emit=None):
     by_id = {g["id"]: g for g in kit_signs}
     card = {"id": card_id, "title": title, "created": time.strftime("%Y-%m-%d %H:%M:%S"), "source": "camera", "fast": True,
             "clip_seconds": round(dur, 1), "frames": len(frames), "fps": round(fps, 2), "links": [],
+            "poses": {g["id"]: {"name": g["name"], "panel": g["panel"], "photo": g["ref"]} for g in kit_signs},
             "steps": [{"id": f"q{n + 1:02d}", "pose": s["label"], "action": by_id[s["label"]]["name"],
                        "done_when": by_id[s["label"]]["look"], "panel": by_id[s["label"]]["panel"], "keyframe": by_id[s["label"]]["ref"],
                        "start_s": round(s["start"], 2), "end_s": round(s["end"], 2), "seconds": round(s["end"] - s["start"] + 1 / fps, 2)}
@@ -221,6 +222,24 @@ class Session(signs.Session):
                 got[self.step_ids[o["pos"] - 1]] = o["got"]
             elif o["op"] == "extra":
                 extra.append(o["got"])
+        if final:
+            # A step done at a different point in the run was done: call it "moved", not "never happened".
+            # (People do loose tasks in their own order; on 16 cooking recordings strict order gave 31 false
+            # "never happened", order-free 12. See docs/EVAL.md, "Frame by frame".)
+            pose = {sid: st["pose"] for sid, st in zip(self.step_ids, self.card["steps"])}
+            spare = list(extra) + list(got.values())
+            for sid in self.step_ids:
+                if marks[sid] in ("skipped", "wrong") and pose[sid] in spare:
+                    spare.remove(pose[sid])
+                    marks[sid] = "moved"
+                    got.pop(sid, None)
+            for sid in list(got):                    # a "wrong" whose stand-in was really another step done early or late
+                if got[sid] in spare:
+                    spare.remove(got[sid])
+                else:
+                    marks[sid] = "skipped"
+                    del got[sid]
+            extra = spare
         return marks, extra, got
 
     def state(self):
@@ -258,6 +277,7 @@ class Session(signs.Session):
         name = {g["id"]: g["name"] for g in self.kit["signs"]}
         num = lambda sid: f"step {self.step_ids.index(sid) + 1}"
         skipped = [sid for sid in self.step_ids if marks[sid] in ("skipped", "wrong")]
+        moved = [sid for sid in self.step_ids if marks[sid] == "moved"]
         unsure = []
         if res["frames"] and res["missing_frames"] > res["frames"] * 0.2:      # too many frames unanswered to say "never"
             unsure, skipped = skipped, []
@@ -267,6 +287,8 @@ class Session(signs.Session):
                          if sid in got else f"{num(sid)} never happened")
         if unsure:
             parts.append("not sure about " + ", ".join(num(s) for s in unsure))
+        if moved:
+            parts.append(", ".join(num(s) for s in moved) + " done out of order")
         if extra:
             parts.append("extra: " + ", ".join(name.get(x, x) for x in extra))
         if not seen:
@@ -276,10 +298,49 @@ class Session(signs.Session):
         if res["missing_frames"]:
             parts.append(f"{res['missing_frames']} frames got no answer")
         v = {"seen": [sid for sid in self.step_ids if marks[sid] == "seen"], "unsure": unsure, "skipped": skipped,
-             "extra": extra, "wrong": got, "order_violations": [], "scores": {}, "thresholds": {},
+             "out_of_order": moved, "extra": extra, "wrong": got, "order_violations": [], "scores": {}, "thresholds": {},
              "windows": res["frames"] - res["missing_frames"], "missing_windows": [], "review": None,
-             "clean": bool(seen) and not skipped and not unsure and not extra,
+             "clean": bool(seen) and not skipped and not unsure and not extra and not moved,
              "performed": [name.get(x, x) for x in seen], "latency": res.get("latency"),
              "text": "; ".join(parts)}
         self.verdict = v
         return v
+
+
+def saved_runs(card):
+    """Finished live runs of this fast card that can be played back with the network off, newest first."""
+    out = []
+    for p in config.RUNS.glob("*/signs.json") if config.RUNS.is_dir() else []:
+        try:
+            j = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if j.get("kit") == card["id"] and j.get("source") == "live" and j.get("frames"):
+            out.append({"recording": j["id"], "ts": p.stat().st_mtime, "frames": len(j["frames"])})
+    return sorted(out, key=lambda r: -r["ts"])
+
+
+def replay_saved(card, run_id, speed=1.0):
+    """A new session fed from a saved run's answers at `speed` x real time. Returns it at once."""
+    import threading
+    log = json.loads((config.RUNS / run_id / "signs.json").read_text())
+    s = Session(card, source="replay")
+    s.recording, s.total = run_id, len(log["frames"])
+
+    def feed():
+        t0 = time.time()
+        try:
+            for i, t, a in log["frames"]:
+                if s.done or s.fatal:
+                    break
+                if speed > 0:
+                    time.sleep(max(0.0, t0 + t / speed - time.time()))
+                with s.lock:
+                    s.times[int(i)] = float(t)
+                    if a:
+                        s.answers[int(i)] = a
+                        s.lat.append(a.get("lat", 0))
+        finally:
+            s.finish(wait_s=0)
+    threading.Thread(target=feed, daemon=True).start()
+    return s

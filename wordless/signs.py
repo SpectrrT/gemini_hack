@@ -351,7 +351,7 @@ class Session:
             if self.done:
                 return self.result
         cf.wait(list(self.pending.values()), timeout=wait_s)
-        if not self.fatal:
+        if not self.fatal and self.source != "replay" and backfill_s > 0:
             with self.lock:
                 todo = sorted(i for i in self.times if i not in self.answers)
             t0 = time.time()

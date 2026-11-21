@@ -95,6 +95,8 @@ def card_json(cid):
     except FileNotFoundError:
         abort(404)
     c["recordings"] = follow.recordings_for(c)
+    if c.get("fast") and "poses" not in c:              # cards built before the field existed
+        c["poses"] = {st["pose"]: {"name": st["action"], "panel": st["panel"], "photo": st["keyframe"]} for st in c["steps"]}
     return jsonify(c)
 
 
@@ -304,6 +306,11 @@ def recorded_runs(card, exclude=None, prefer=None):
         ts = p.stat().st_mtime
         out.append({"recording": j["id"], "ts": ts, "input": "live camera", "windows": len(j["answers"]),
                     "label": f"Recorded run from {_when(ts)} on live camera"})
+    if card.get("fast"):
+        for r in fast.saved_runs(card):
+            if r["recording"] != exclude:
+                out.append({"recording": r["recording"], "ts": r["ts"], "input": "live camera", "windows": r["frames"], "fast": True,
+                            "label": f"Recorded run from {_when(r['ts'])} on live camera"})
     out.sort(key=lambda r: -r["ts"])
     taped, d = [], gemini.tape.root / "follow" / card["id"]
     for p in sorted(d.iterdir()) if d.is_dir() else []:
@@ -349,6 +356,10 @@ def follow_recorded():
     run = next((r for r in runs if r["recording"] == d.get("recording")), runs[0] if runs else None)
     if not run:
         abort(400, "No recorded run for this card yet. Finish one follow session first.")
+    if run.get("fast"):                 # a saved frame-by-frame run: replayed at its own pace from saved answers
+        s = fast.replay_saved(c, run["recording"], speed=float(d.get("speed") or 1))
+        _shell(s, run["input"], True, d.get("deadline_s"), recorded=run["label"])
+        return jsonify(_state(s))
     answers, missing = _saved_answers(c, run["recording"])
     speed = float(d.get("speed") or 8)
     s = follow.Session(c, "replay", recording=run["recording"], review="tape")

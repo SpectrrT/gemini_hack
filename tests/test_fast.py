@@ -57,6 +57,31 @@ def test_follow_clean_skipped_wrong_and_extra(card):
     assert v["skipped"] == ["q02"] and "step 2 was" in v["text"] and v["wrong"]["q02"]
     _, v = perform(card, ["red", "green", "dark", "red", "blue", "green"])
     assert not v["clean"] and v["extra"] and v["text"].startswith("extra:")
+    _, v = perform(card, ["green", "red", "dark", "red", "blue"])         # every step done, the first two swapped
+    assert not v["skipped"] and v["out_of_order"] and "done out of order" in v["text"] and not v["clean"], v
+
+
+def test_saved_run_plays_back_with_no_network(card, monkeypatch):
+    import time
+    import server
+    from wordless import fast, gemini
+    s, v = perform(card, ["red", "dark", "red", "blue"])
+    assert fast.saved_runs(card)[0]["recording"] == s.id
+
+    def no_network(*a, **k):
+        raise AssertionError("a recorded run must not call the API")
+    monkeypatch.setattr(gemini, "_post", no_network)
+    c = server.app.test_client()
+    runs = c.get(f"/api/recorded/{card['id']}").get_json()
+    assert runs and runs[0]["recording"] == s.id and runs[0]["label"].startswith("Recorded run from ")
+    st = c.post("/api/follow/recorded", json={"card": card["id"], "speed": 50}).get_json()
+    assert st["fast"] and st["shell"]["mode"] == "REPLAY"
+    for _ in range(100):
+        done = c.get(f"/api/follow/{st['id']}").get_json()
+        if done["done"]:
+            break
+        time.sleep(0.05)
+    assert done["verdict"]["text"] == v["text"] == "step 2 never happened", done["verdict"]
 
 
 def test_live_state_lights_steps_in_order(card):
