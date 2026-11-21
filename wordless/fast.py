@@ -437,3 +437,36 @@ def replay_saved(card, run_id, speed=1.0):
             s.finish(wait_s=0)
     threading.Thread(target=feed, daemon=True).start()
     return s
+
+
+def one_call(session, timeout=90):
+    """The simple baseline on the same run: ONE Hydrogen call on the saved frames with the step list.
+    Returns {"skipped": [card step ids], "lat": seconds}. Recorded on tape, so it is asked once per run."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    from .baseline import PROMPT
+    card, d = session.card, config.RUNS / (session.recording or session.id)
+    ids = cards.step_ids(card)
+
+    def call():
+        frames = sorted(d.glob("f_*.jpg"))
+        if len(frames) < 3:
+            raise FileNotFoundError(f"no saved frames for run {d.name}")
+        with session.lock:
+            span = max(session.times.values()) - min(session.times.values()) if session.times else 0
+        rate = max(1.0, min(10.0, (len(frames) - 1) / span)) if span > 0 else 8.0
+        with tempfile.TemporaryDirectory() as tmp:
+            clip = Path(tmp) / "run.mp4"
+            subprocess.run([video.ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-framerate", f"{rate:.2f}", "-pattern_type", "glob",
+                            "-i", str(d / "f_*.jpg"), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-vf", "scale=-2:360", str(clip)], check=True)
+            listing = "\n".join(f"- {s['id']}: {s['action']} ({s['done_when']})" for s in card["steps"])
+            r = gemini.generate(config.MODELS["hydrogen"], [gemini.inline(clip.read_bytes(), "video/mp4"), {"text": PROMPT % listing}],
+                                {"responseMimeType": "application/json"}, timeout=timeout, tries=1)
+        out = gemini.json_of(r)
+        if not isinstance(out, dict):
+            raise ValueError("unparseable baseline answer: " + str(out)[:160])
+        norm = lambda v: {str(x).strip().lower() for x in ([k for k, on in v.items() if on] if isinstance(v, dict) else v or [])} & set(ids)
+        performed, not_performed = norm(out.get("performed")), norm(out.get("not_performed"))
+        return {"skipped": [i for i in ids if i in not_performed or i not in performed], "lat": r["_latency"]}
+    return gemini.taped(f"baseline/hydrogen/{card['id']}/{d.name}", call)

@@ -114,10 +114,26 @@ def test_http_teach_and_follow(fake_api, sandbox):
     st = c.post("/api/follow/live", json={"card": card["id"], "deadline_s": 60}).get_json()
     assert st["fast"] and st["shell"]["mode"] == "LIVE"
     data = lambda col: "data:image/jpeg;base64," + base64.b64encode(jpeg(col)).decode()
-    for i, col in enumerate(["blue"] * 3 + ["yellow"] * 3):
+    for i, col in enumerate(["blue"] * 10 + ["yellow"] * 10):     # 2 s each: the fake's one-call baseline samples once a second
         assert c.post(f"/api/follow/{st['id']}/frame", json={"i": i, "t": i / 5, "image": data(col)}).get_json()["ok"]
     done = c.post(f"/api/follow/{st['id']}/finish", json={}).get_json()
-    assert done["done"] and done["verdict"]["clean"] and done["shell"]["questions"] == 6, done
+    assert done["done"] and done["verdict"]["clean"] and done["shell"]["questions"] == 20, done
+    # the one-call baseline runs on the same frames and lands beside our verdict
+    for _ in range(100):
+        b = c.get(f"/api/follow/{st['id']}").get_json()["shell"]["baseline"]
+        if b["state"] != "running":
+            break
+        time.sleep(0.1)
+    assert b["state"] == "done" and b["skipped"] == [] and b["text"] == "all 2 steps performed", b
+    # the trial is logged with what really happened (the person did it right), baseline scored on the same trial
+    row = c.post("/api/tally", json={"session": st["id"], "sealed": "right"}).get_json()
+    assert row["card_checker"] == "correct"
+    for _ in range(100):
+        rows = c.get("/api/tally").get_json()
+        if rows[-1]["hydrogen_one_call"] != "pending":
+            break
+        time.sleep(0.1)
+    assert rows[-1]["hydrogen_one_call"] == "correct", rows[-1]
     assert c.get("/signs").status_code == 404
 
 

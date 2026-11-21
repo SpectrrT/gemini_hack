@@ -243,11 +243,36 @@ def _start_baseline(s, rec):
     threading.Thread(target=run, daemon=True).start()
 
 
+def _start_fast_baseline(s):
+    """New flow: once a live run is over, one Hydrogen call watches the same frames. Shown beside our verdict."""
+    sh = SHELL[s.id]
+    sh["baseline"] = {"state": "running", "t0": time.time()}
+
+    def run():
+        t0 = time.time()
+        try:
+            h = fast.one_call(s)
+            nums = [cards.panel_number(s.card, x) for x in h["skipped"]]
+            out = {"state": "done", "skipped": h["skipped"], "lat": h.get("lat"),
+                   "text": ("step " + ", ".join(map(str, nums)) + " never happened") if nums else f"all {len(s.card['steps'])} steps performed"}
+        except gemini.TapeMiss:
+            out = {"state": "none", "text": "baseline not recorded for this run (replay mode makes no API calls)"}
+        except gemini.NoCredit:
+            out = {"state": "error", "text": "baseline failed: the API key has no credit"}
+        except Exception as e:
+            out = {"state": "error", "text": f"baseline failed: {type(e).__name__}: {e}"[:160]}
+        out["took"] = round(time.time() - t0, 1)
+        sh["baseline"] = out
+    threading.Thread(target=run, daemon=True).start()
+
+
 def _state(s):
     st = s.state()
     sh = SHELL.get(s.id)
     if not sh:
         return st
+    if isinstance(s, fast.Session) and s.done and s.source == "live" and sh["baseline"] is None and not s.fatal:
+        _start_fast_baseline(s)
     with s.lock:
         asked = len(s.answers) + len([i for i, why in s.errors.items() if i not in s.answers and why != UNREACHED])
         asked += sum(1 for i, f in list(s.pending.items()) if not f.done() and i not in s.answers and i not in s.errors)
@@ -460,7 +485,7 @@ def tally_add():
 
     def base():     # the one-call baseline on the very same trial, in the background
         try:
-            h = baseline.hydrogen_one_call(s.card, s.id if s.source == "live" else s.recording)
+            h = fast.one_call(s) if isinstance(s, fast.Session) else baseline.hydrogen_one_call(s.card, s.id if s.source == "live" else s.recording)
             out = judge(truth, h["skipped"], [])
         except gemini.TapeMiss:
             out = "not recorded"
