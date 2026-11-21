@@ -16,6 +16,20 @@ workshop. The trainer films the routine once. The new hire gets a card with no w
 themselves against it. Wordless is a tested instruction sheet, not a coach: it says which step did not
 happen, not how well a step was done.
 
+## What was built at the event
+
+Everything in this repository was written at the Gemini 4 NYC Hackathon on Nov 21 2026, after hacking opened
+at 10:30 AM. Nothing existed before then: no code, no prompts, no cards, no recorded answers. The first commit
+is at 11:11 AM that day and the git history covers the whole build.
+
+- **Built today, by the two of us:** all of `wordless/` (teaching, following, the frame decoder, the verdict
+  rules), `server.py`, the page in `web/`, `tests/`, `scripts/`, the docs, the cards in `cards/`, and the
+  recorded API answers in `tape/` and `fixtures/`. The 16-recording eval was run today.
+- **Not ours:** the CaptainCook4D footage and human labels the eval is scored against (a public dataset, see
+  [docs/LICENCES.md](docs/LICENCES.md)), the Gemini models, and the libraries in `requirements.txt`.
+- Some comments mention `research/feasibility/...`. That was a scratch folder of API experiments run today at
+  the venue to learn the request and response shapes; it is not part of this repository.
+
 ## 3-minute demo flow
 
 1. One person shows a short routine to the camera: any steps, any speed, nothing typed.
@@ -166,7 +180,7 @@ recording, so a session filmed at the table can be replayed if the network fails
 | Stage | Model | Job |
 |---|---|---|
 | name | `gemini-4-carbon` (Gemini 4) | Watches the teaching clip once and lists the distinct steps and the order performed. A short clip is slowed first so quick poses are visible. Hydrogen is the fallback if Carbon does not answer. |
-| locate | `gemini-decision-1` (Decisions API) | Labels every teaching frame, five a second; code places each named step and picks its clearest frame. A named step is never dropped. |
+| locate | `gemini-decision-1` (Decisions API) | Labels every teaching frame, ten a second; code places each named step and picks its clearest frame. A named step is never dropped. |
 | draw | `gemini-3-pro-image` (not Gemini 4) | Redraws each clearest frame as a line-art panel: only the hands and objects that carry the step, no portrait. |
 | selftest | `gemini-decision-1` | The finished card follows its own teaching clip. |
 | follow | `gemini-decision-1` | Reference sheet plus one camera frame, several a second: which step? Code lines the answers up against the card (`wordless/decode.py`). A low-movement step that reads as a pause is kept when one step stays the best guess for a second. |
