@@ -191,7 +191,7 @@ def build(video_path, card_id=None, title="Routine", emit=None):
             g = kit_signs[i]
             def call():
                 d = gemini.generate(config.MODELS["image"], [gemini.inline((b.dir / g["ref"]).read_bytes(), "image/jpeg"),
-                                                             {"text": signs.DRAW_PROMPT}], {"responseModalities": ["IMAGE"]})
+                                                             {"text": signs.draw_prompt(g["name"], g["look"])}], {"responseModalities": ["IMAGE"]})
                 return cards.to_jpeg(gemini.image_of(d), max_side=640)
             return gemini.taped(b.key("panel", g["id"]), call, kind="bytes")
         arts = _all(one, len(kit_signs), workers=6)

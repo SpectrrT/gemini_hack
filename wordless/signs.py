@@ -33,10 +33,23 @@ _draw_pool = cf.ThreadPoolExecutor(6)
 _kit_lock = threading.Lock()
 _sessions = {}
 
-DRAW_PROMPT = ("Redraw this photo as a clean black line drawing on a white background, in the style of a wordless "
-               "assembly-instruction sheet. Keep the exact pose of the hands, fingers and arms. Show only the person's "
-               "upper body and hands. Draw exactly the hands that are in the photo: do not add, remove or move a hand or a "
-               "finger, and do not add objects. No shading, no background objects, no letters, no numbers, no words.")
+DRAW_PROMPT = ("Redraw this photo as one panel of a wordless instruction sheet: clean black line art on a white "
+               "background, uniform outlines.\n"
+               "Before you draw, decide what carries this step: which hands, fingers, arms and objects a person must "
+               "copy to repeat it. Draw ONLY those, large and centred, and leave everything else out.\n"
+               "- Hands and fingers: keep the exact pose from the photo. Do not add, remove or move a hand or a finger. "
+               "End each arm in open lines at the wrist or forearm unless the arm's position is part of the step.\n"
+               "- The person: no portrait. No facial features, hair, clothing details, jewellery or body outline. Only "
+               "if the step depends on where the hands are relative to the head or chest, add that part as one plain, "
+               "featureless outline (an empty oval for a head) so the position can be read.\n"
+               "- Objects: only the ones the hands touch or act on. Do not add objects.\n"
+               "No shading, no colour, no background, no letters, no numbers, no words.")
+
+
+def draw_prompt(name="", look=""):
+    """DRAW_PROMPT plus what the step is, so the image model can tell what matters in the photo."""
+    what = " ".join(x.strip() for x in (name, look) if x and x.strip())
+    return DRAW_PROMPT + (f"\nThe step this panel teaches (for your understanding only, never write it): {what}" if what else "")
 
 
 # ---------------------------------------------------------------- kits
@@ -173,7 +186,9 @@ def draw_panel(kid, sid, version):
     """Reference photo -> line-art panel (the picture shown to the next person). Runs in the background."""
     try:
         photo = (kit_dir(kid) / f"ref_{sid}.jpg").read_bytes()
-        d = gemini.generate(config.MODELS["image"], [gemini.inline(photo, "image/jpeg"), {"text": DRAW_PROMPT}],
+        sign = next((x for x in load(kid)["signs"] if x["id"] == sid), None) or {}
+        d = gemini.generate(config.MODELS["image"], [gemini.inline(photo, "image/jpeg"),
+                                                     {"text": draw_prompt(sign.get("name", ""), sign.get("look", ""))}],
                             {"responseModalities": ["IMAGE"]})
         art = cards.to_jpeg(gemini.image_of(d), max_side=640)
     except Exception as e:                      # the photo stays as the picture; say why
