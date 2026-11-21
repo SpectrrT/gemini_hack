@@ -563,3 +563,7 @@ button.mini { min-height:32px; }
   main:has(#go:disabled) .verdict::before { animation:none; }
   button.act:not(:disabled):active, button.mini:not(:disabled):active { translate:none; }
 }
+
+/* ---- logo: a speech bubble holding an eye (web/logo.svg, also the favicon) + lowercase wordmark */
+header h1 { font:800 30px/1 var(--display); letter-spacing:-.045em; text-transform:lowercase; gap:9px; }
+header h1::before { width:36px; height:36px; border-radius:0; background:url("/web/logo.svg") center / contain no-repeat; margin-bottom:-4px; }
