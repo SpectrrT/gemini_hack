@@ -26,7 +26,7 @@
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; }
   .note { color:var(--mute); font-size:13px; } .err { color:var(--red); font-weight:600; }
   .cam { position:relative; background:#000; }
-  .cam video { width:100%; display:block; aspect-ratio:4/3; object-fit:cover; transform:scaleX(-1); }
+  .cam video { width:100%; display:block; aspect-ratio:4/3; object-fit:cover; }
   .cam .over { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-weight:900; text-shadow:0 2px 12px #000; pointer-events:none; text-align:center; }
   .cam .over .big { font-size:110px; line-height:1; } .cam .over .what { font-size:30px; }
   .cam .nowlab { position:absolute; left:10px; bottom:10px; background:var(--ink); color:#fff; font-weight:800; padding:4px 10px; font-size:18px; }
@@ -53,6 +53,7 @@
   .verdict.exact { background:#d6f5e0; } .verdict.near, .verdict.errors { background:#fff3c4; } .verdict.unknown, .verdict.nothing { background:#fdecea; }
   .verdict small { display:block; font-size:13px; font-weight:600; color:var(--mute); margin-top:4px; }
 </style>
+<script src="/web/mirror.js"></script>
 </head>
 <body>
 <header>
