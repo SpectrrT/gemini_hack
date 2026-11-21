@@ -73,7 +73,9 @@ def card_url(cid):
 
 @app.get("/")
 def index():
-    return send_from_directory(WEB, "index.html")
+    r = send_from_directory(WEB, "index.html")
+    r.headers["Cache-Control"] = "no-store"          # a reload always gets the current page, never a cached older one
+    return r
 
 
 @app.get("/web/<path:name>")

@@ -37,8 +37,10 @@ DRAW_PROMPT = ("Redraw this photo as one panel of a wordless instruction sheet: 
                "background, uniform outlines.\n"
                "Before you draw, decide what carries this step: which hands, fingers, arms and objects a person must "
                "copy to repeat it. Draw ONLY those, large and centred, and leave everything else out.\n"
-               "- Hands and fingers: keep the exact pose from the photo. Do not add, remove or move a hand or a finger. "
-               "End each arm in open lines at the wrist or forearm unless the arm's position is part of the step.\n"
+               "- Hands and fingers: draw only the hands that are doing the step, in the exact pose from the photo. "
+               "Leave out a hand that is in the photo but only resting or waiting. Never draw a hand, a finger or an arm "
+               "that is not visible in the photo, and never more than two hands. End each arm in open lines at the "
+               "wrist or forearm unless the arm's position is part of the step.\n"
                "- The person: no portrait. No facial features, hair, clothing details, jewellery or body outline. Only "
                "if the step depends on where the hands are relative to the head or chest, add that part as one plain, "
                "featureless outline (an empty oval for a head) so the position can be read.\n"
@@ -49,7 +51,12 @@ DRAW_PROMPT = ("Redraw this photo as one panel of a wordless instruction sheet: 
 def draw_prompt(name="", look=""):
     """DRAW_PROMPT plus what the step is, so the image model can tell what matters in the photo."""
     what = " ".join(x.strip() for x in (name, look) if x and x.strip())
-    return DRAW_PROMPT + (f"\nThe step this panel teaches (for your understanding only, never write it): {what}" if what else "")
+    if not what:
+        return DRAW_PROMPT
+    # Told the step, the image model drew what the words say (a hand reaching in from nowhere) instead of the photo.
+    return DRAW_PROMPT + ("\nThe step this panel teaches is given below. Use it ONLY to choose which of the things visible in the "
+                          "photo to keep. The photo is the truth: if the step mentions a hand, an object or a movement that the "
+                          "photo does not show, do not draw it. Never write the step.\nStep: " + what)
 
 
 # ---------------------------------------------------------------- kits
