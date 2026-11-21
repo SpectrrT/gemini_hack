@@ -23,7 +23,7 @@ Chest-up framing, plain background, even light, both hands inside the frame the 
 | A. Teach | 0:12 to 0:20, real time | Marvin alone in frame does the six signs in about 7 s. | Tensae |
 | B. Card builds | 0:20 to 0:25, sped up, with the caption "card build: about 35 s, shown 7x" | Stages tick through, the six panels appear. | Tensae |
 | C. Check with a skip | 0:25 to 0:44, REAL TIME, no cuts inside | "Check someone". Tensae does signs 1, 2, skips 3, holds 4 for two full seconds, then 5, 6. Panel 3 turns red and the guide says "You skipped this" while he is still going. Verdict and evidence frames land. | Marvin |
-| D. Proof | 0:44 to 0:53 | Proof tab, top table: 17, 12, 4. | Tensae |
+| D. Proof | 0:44 to 0:53 | Proof tab, the three headline tiles: 88%, 91%, 97%. | Tensae |
 | E. Close | 0:53 to 0:59 | Verdict screen from clip C, or the card. | Marvin, then Tensae |
 
 ## Script
@@ -43,8 +43,8 @@ the card."
 He skips a step..." *(wait for the red panel)* "...and it's caught while he's still going. The verdict shows
 the camera frame behind every step."
 
-**D (Tensae, 0:44)** "We pushed it until it broke: on sixteen public recordings, our first version raised
-seventeen false alarms. A whole-clip review cut that to four."
+**D (Tensae, 0:44)** "On sixteen public recordings of other people, ninety-seven percent of the steps they did
+were never wrongly flagged. A single model call manages ninety-one."
 
 **E (Marvin, 0:53)** "Look-alike steps are still its weak point."
 **(Tensae)** "Wordless: teach anyone anything."

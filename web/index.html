@@ -94,6 +94,14 @@
   .recbanner { display:none; border:3px solid var(--line); background:#fff3c4; padding:9px 14px; margin-bottom:12px; font-size:18px; font-weight:800; }
   .recbanner small { display:block; font-weight:500; font-size:13px; color:var(--mute); }
   @media (max-width:1100px) { .vs { grid-template-columns:1fr; } .keepbox { max-width:none; } }
+  /* Proof tab headline */
+  .headline { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin:12px 0 4px; }
+  .headline .tile { border:3px solid var(--ink, #111); border-radius:18px; padding:14px 16px; background:#fff; }
+  .headline .tile.ours { background:#d6f5e0; }
+  .headline .tile b { display:block; font-size:54px; line-height:1; font-weight:900; letter-spacing:-1px; }
+  .headline .tile span { display:block; font-weight:700; margin-top:6px; }
+  .headline .tile small { display:block; color:var(--mute, #77736a); margin-top:2px; }
+  .headline .cap { grid-column:1 / -1; font-weight:700; }
   /* follow-along guide and evidence frames */
   .fnext { margin-top:12px; }
   .fnextpic { position:relative; border:3px solid var(--ink, #111); border-radius:18px; overflow:hidden; background:#fff; aspect-ratio:4/3; max-height:300px; display:grid; place-items:center; transition:box-shadow .2s; }
@@ -303,6 +311,7 @@
   <div class="box">
     <h2>16 public recordings: other people, other kitchens, scored against human labels</h2>
     <p class="note" id="pnote">Loading the saved results…</p>
+    <div class="headline" id="phead"></div>
     <div id="ptotals"></div>
     <p class="note">The card was taught from one recording of a tomato salad (CaptainCook4D 12_17) and scored on every other recording of that recipe: 5 people, 6 kitchens. The answer key is the dataset's human labels. These numbers are re-computed from saved model answers each time this tab loads; nothing is called now. They are for the 2-second window checker. The newer frame-by-frame flow has only smoke tests so far.</p>
   </div>
@@ -817,6 +826,9 @@ async function loadProof() {
   try {
     const r = await api('/api/proof');
     $('#pnote').textContent = 'Re-scored just now from saved answers (fixtures/eval_wide). No API call.';
+    const all = r.totals[0].rows, by = k => all.find(m => m.key === k), tile = (m, name, cls) => `<div class="tile ${cls}"><b>${Math.round(m.clean_pct)}%</b><span>${name}</span><small>${m.clean} of ${m.performed} steps · ${m.false_never} wrongly flagged</small></div>`;
+    $('#phead').innerHTML = `<div class="cap">Steps people really did that were never wrongly called "never happened" (16 recordings of other people, ${by('review').performed} steps)</div>`
+      + tile(by('card'), 'Our first version', '') + tile(by('one_call'), 'One Hydrogen call (baseline)', '') + tile(by('review'), 'Ours now: card + review', 'ours');
     $('#ptotals').innerHTML = r.totals.map(t => `<h3 style="margin:14px 0 6px">${t.set}</h3><table><tr><th>Method</th><th>False "never happened"</th><th>Recordings with one</th><th>Real skips flagged</th><th>"Not sure"</th><th>Verdict fully right</th></tr>` +
       t.rows.map(m => `<tr${m.key === 'review' ? ' style="font-weight:700"' : ''}><td>${m.method}</td><td class="${m.false_never <= 4 ? 'ok' : 'no'}">${m.false_never} of ${m.performed} performed steps</td><td>${m.recordings_with_false_never} of ${m.n}</td><td>${m.flagged} of ${m.skips}</td><td>${m.not_sure}</td><td>${m.verdict_fully_right} of ${m.n}</td></tr>`).join('') + '</table>').join('');
     const c = x => `<td class="${x.n_false ? 'no' : x.not_sure ? 'meh' : 'ok'}">${x.n_false ? x.false_never : 'none'}${x.skips ? `<br><span class="note">${x.flagged}/${x.skips} skips flagged</span>` : ''}${x.not_sure ? `<br><span class="note">${x.not_sure} not sure</span>` : ''}</td>`;

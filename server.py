@@ -679,7 +679,12 @@ def proof():
     methods = [("card", "Card checker alone (first version)"), ("one_call", "One Hydrogen call on the whole clip (baseline)"),
                ("review", "Card + whole-clip review (what ships)")]
     sets = [("All 16 recordings", rows), ("12 never scored before", [r for r in rows if r["group"] == "new"])]
-    totals = [{"set": title, "rows": [dict(ew.totals(rs, m), method=label, key=m) for m, label in methods]} for title, rs in sets]
+    def tot(rs, m, label):
+        t = dict(ew.totals(rs, m), method=label, key=m)
+        t["clean"] = t["performed"] - t["false_never"]          # performed steps that were NOT wrongly called "never happened"
+        t["clean_pct"] = round(100 * t["clean"] / t["performed"], 1) if t["performed"] else None
+        return t
+    totals = [{"set": title, "rows": [tot(rs, m, label) for m, label in methods]} for title, rs in sets]
     per = [{"recording": r["recording"], "group": r["group"], "skipped": ew.names(r["truth"]["skipped"]) if r["truth"]["skipped"] else "",
             "changed": len(r["truth"].get("changed") or []),
             **{m: {"false_never": ew.names(r[m]["false_never"]) if r[m]["false_never"] else "", "n_false": len(r[m]["false_never"]),
