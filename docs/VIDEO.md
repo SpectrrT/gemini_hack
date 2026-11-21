@@ -1,7 +1,7 @@
 # Video: shot list and script (60 s or less)
 
 One raw screen-and-camera take can follow this: screen recording of the app, plus (optional) a face or hands
-camera for the opening and closing lines. Read the script in one go at a steady pace; each block's seconds
+camera inset. The product is on screen within the first 10 seconds (it is on screen from 0:00 here). Read the script in one go at a steady pace; each block's seconds
 are a guide, and the total is about 58 s at 140 words per minute. Numbers are from `README.md` "State of the
 evidence" (tag `[R:..]`); re-check them at 15:30.
 
@@ -15,7 +15,8 @@ evidence" (tag `[R:..]`); re-check them at 15:30.
    not run, there is no live shot; do not fake one.
 4. Footage credit once at the end: "Footage: CaptainCook4D dataset, Apache 2.0".
 5. Show the failure number on screen at the same time it is spoken. Do not cut it.
-6. Say "tested instruction sheet" or "card", never "coach" or "analyzer".
+6. Captions for everything spoken, burned in (the hall is loud). No agent or token counts in the first sentence.
+7. Say "tested instruction sheet" or "card", never "coach" or "analyzer".
 
 ## Script (spoken text, 138 words)
 
@@ -46,7 +47,7 @@ If the words "four recordings" change at the freeze, change them here and on scr
 
 | # | Time | Picture | Voice | On-screen text / label |
 |---|---|---|---|---|
-| 1 | 0:00 to 0:06 | Camera on you (or hands) at a counter, then cut to the Teach tab with the 4-minute teaching clip playing | "Every routine gets taught in words nobody reads. So film it once." | none |
+| 1 | 0:00 to 0:06 | The product from frame one: the Teach tab with the teaching clip playing (a camera inset of you or your hands at the counter is optional) | "Every routine gets taught in words nobody reads. So film it once." | none |
 | 2 | 0:06 to 0:14 | Teach tab: "Rebuild the tomato card from recorded answers"; panels appear one by one; card with 9 panels fills the screen | "This is Wordless. One demonstration, a tomato salad, becomes a card of line drawings. No words." | **REPLAY: recorded API answers (CaptainCook4D footage)**; "card from recording 12_17" |
 | 3 | 0:14 to 0:24 | The "How it works" table (README, or a slide): highlight Hydrogen, Decisions, Argon rows in turn | "Gemini 4 Hydrogen names the steps. The Decisions API finds each one in the footage. Argon plans which steps matter." | model names as written in the README table |
 | 4 | 0:24 to 0:32 | Follow tab, recording 12_43 selected, press Start; video on the left, card on the right, panels 1 to 5 turning green | "Now a different person, a different kitchen. The card watches. Panels turn green as each step is seen." | REPLAY label stays on |
