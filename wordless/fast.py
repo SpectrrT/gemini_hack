@@ -39,6 +39,8 @@ It may be a hands-on task with objects (steps of several seconds each) or a quic
 poses (each held for a second or less, one straight after another). Watch closely: quick poses are easy to miss.
 1. "steps": every DISTINCT step or pose, each listed once. Do not list resting, waiting, hands down or out of
    view, or the movement between poses. Do not invent anything you cannot see.
+   A small action IS a step even when almost nothing else moves: a press, a tap, a twist, a pinch, a flick of a
+   switch, a change of hand shape with the arm still. List it if the person does it on purpose.
 2. "order": what the person actually does from start to finish, as a list of step names in the order performed.
    If a step or pose is done again later, its name appears again.
 Give no timestamps. Answer with JSON only:

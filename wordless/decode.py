@@ -20,6 +20,13 @@ FLOOR = 0.02         # probability given to a label the model did not mention
 MIN_FRAMES = 2       # a sign must hold for at least this many frames
 MIN_CONF = 0.34      # and reach this mean probability (look-alike poses split it; 0.45 dropped real signs)
 MERGE_GAP_S = 0.45   # two runs of one sign closer than this are one sign (a flicker, not a repeat)
+# Quiet steps: a step with little movement (a press, a twist, a small hand action) looks like resting, so each
+# frame splits its probability with "none" and the smoothing above reads the whole step as a pause: a step held
+# 2 s at 0.6 was dropped. A run the smoothing called a pause is kept as a step when ONE step stays the best
+# guess among the steps for QUIET_S seconds, at QUIET_P or more a frame and QUIET_CONF on average.
+QUIET_P = 0.30
+QUIET_CONF = 0.40
+QUIET_S = 1.0
 
 
 def smooth(frames, labels, stay=STAY, floor=FLOOR):
@@ -61,9 +68,43 @@ def smooth(frames, labels, stay=STAY, floor=FLOOR):
     return [states[k] for k in reversed(path)]
 
 
-def segments(frames, times, labels, min_frames=MIN_FRAMES, min_conf=MIN_CONF, merge_gap=MERGE_GAP_S, **kw):
+def _best_step(f):
+    """(label, probability) of the most likely step in a frame, leaving "none" aside; (None, 0) for no answer."""
+    if not f:
+        return None, 0.0
+    lab = max((k for k in f if k != NONE), key=lambda k: f[k], default=None)
+    return (lab, float(f[lab])) if lab is not None else (None, 0.0)
+
+
+def rescue_quiet(path, frames, times, quiet_p=QUIET_P, quiet_conf=QUIET_CONF, quiet_s=QUIET_S):
+    """Relabel stretches of `path` that the smoothing called a pause but that hold one quiet, sustained step."""
+    path, i, n = list(path), 0, len(path)
+    while i < n:
+        if path[i] != NONE:
+            i += 1
+            continue
+        lab, p = _best_step(frames[i])
+        if lab is None or p < quiet_p:
+            i += 1
+            continue
+        j, total = i, 0.0
+        while j < n and path[j] == NONE:
+            l2, p2 = _best_step(frames[j])
+            if l2 != lab or p2 < quiet_p:
+                break
+            total += p2
+            j += 1
+        if times[j - 1] - times[i] >= quiet_s - 1e-9 and total / (j - i) >= quiet_conf - 1e-9:
+            path[i:j] = [lab] * (j - i)
+        i = j
+    return path
+
+
+def segments(frames, times, labels, min_frames=MIN_FRAMES, min_conf=MIN_CONF, merge_gap=MERGE_GAP_S, quiet=True, **kw):
     """Signs seen, in order: [{"label", "start", "end", "frames", "conf"}]. Pauses (NONE) are dropped."""
     path = smooth(frames, labels, **kw)
+    if quiet:
+        path = rescue_quiet(path, frames, times)
     runs = []
     for i, lab in enumerate(path):
         if runs and runs[-1]["label"] == lab:

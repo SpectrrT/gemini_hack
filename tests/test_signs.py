@@ -162,3 +162,32 @@ def test_forced_alignment_places_every_known_step_even_on_weak_evidence():
     segs = decode.force(frames, [i / 5 for i in range(6)], ["a", "b", "a"])
     assert [(s["first"], s["last"]) for s in segs] == [(0, 1), (2, 3), (4, 5)]
     assert decode.force([f("a")], [0.0], ["a", "b"]) is None            # fewer frames than steps
+
+
+# ---------------------------------------------------------------- quiet steps (little movement)
+def _quiet_clip(p, held_frames=10, fps=5.0):
+    """Clear step a, a quiet step b whose frames split their probability with "none", clear step c."""
+    N = decode.NONE
+    fr = [{N: 0.9}] * 3 + [{"a": 0.9, N: 0.1}] * 10 + [{N: 0.9}] * 3
+    fr += [{"b": p, N: round(1 - p, 3)}] * held_frames + [{N: 0.9}] * 3 + [{"c": 0.9, N: 0.1}] * 10 + [{N: 0.9}] * 3
+    return fr, [i / fps for i in range(len(fr))]
+
+
+def test_a_quiet_step_held_two_seconds_is_seen():
+    for p in (0.6, 0.5, 0.45, 0.4):
+        fr, t = _quiet_clip(p)
+        assert [s["label"] for s in decode.segments(fr, t, ["a", "b", "c"])] == ["a", "b", "c"], p
+        if p <= 0.5:                                 # without the rescue these were read as a pause
+            assert [s["label"] for s in decode.segments(fr, t, ["a", "b", "c"], quiet=False)] == ["a", "c"], p
+
+
+def test_the_rescue_does_not_invent_steps():
+    N = decode.NONE
+    fr, t = _quiet_clip(0.25)                        # too faint: still a pause
+    assert [s["label"] for s in decode.segments(fr, t, ["a", "b", "c"])] == ["a", "c"]
+    fr, t = _quiet_clip(0.5, held_frames=3)          # 0.4 s: a flicker, not a step
+    assert [s["label"] for s in decode.segments(fr, t, ["a", "b", "c"])] == ["a", "c"]
+    flip = [{N: 0.9}] * 3 + [{"a": 0.45, N: 0.55}, {"b": 0.45, N: 0.55}] * 6 + [{N: 0.9}] * 3     # no one step is sustained
+    assert decode.segments(flip, [i / 5.0 for i in range(len(flip))], ["a", "b", "c"]) == []
+    rest = [{N: 0.9}] * 40                           # a long pause stays a pause
+    assert decode.segments(rest, [i / 5.0 for i in range(40)], ["a", "b", "c"]) == []
