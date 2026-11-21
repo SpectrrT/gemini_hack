@@ -546,7 +546,9 @@ function showVerdict(s) {
     const sid = s.id;
     F.bpoll = setInterval(async () => {
       if (F.sid !== sid) return clearInterval(F.bpoll);
-      try { const x = await api('/api/follow/' + sid); paintBase(x.shell); if (!x.shell || !x.shell.baseline || x.shell.baseline.state !== 'running') clearInterval(F.bpoll); } catch (e) {}
+      try { const x = await api('/api/follow/' + sid); paintBase(x.shell);
+        if (x.verdict && x.verdict.second && x.verdict.text !== v.text) { clearInterval(F.bpoll); paintPanels($('#fcardGrid'), x.panels, x.now, x.verdict); showVerdict(x); return; }   // Hydrogen's second vote changed our verdict
+        if (!x.shell || !x.shell.baseline || x.shell.baseline.state !== 'running') { clearInterval(F.bpoll); if (x.verdict && x.verdict.second) showVerdict(x); } } catch (e) {}
     }, 1000);
   }
   if (sh) {
@@ -557,7 +559,9 @@ function showVerdict(s) {
   const wrong = v.skipped.length || (v.extra || []).length || (v.order_violations || []).length;
   el.className = 'verdict ' + (v.clean ? 'clean' : wrong ? 'bad' : 'unsure');
   el.innerHTML = (sh && sh.deadline_hit ? `<div class="why">Deadline reached (${sh.deadline_s} s): the session finished itself with ${v.windows}${s.total ? ' of ' + s.total : ''} windows answered.</div>` : '')
-    + v.text.charAt(0).toUpperCase() + v.text.slice(1) + (s.fast ? `<small>${s.windows ?? 0} frames read${sh && sh.last_call_s != null ? ' · ' + (+sh.last_call_s).toFixed(2) + ' s per answer' : ''}</small>`
+    + v.text.charAt(0).toUpperCase() + v.text.slice(1) + (s.fast ? `<small>${s.windows ?? 0} frames read${sh && sh.last_call_s != null ? ' · ' + (+sh.last_call_s).toFixed(2) + ' s per answer' : ''}${
+        v.second ? ' · second vote by Hydrogen: ' + (v.second.softened.length ? v.second.softened.length + ' flagged step' + (v.second.softened.length > 1 ? 's' : '') + ' it saw performed, now "not sure"' : v.second.confirmed.length ? 'agrees' : 'nothing to confirm')
+        : (v.skipped.length && sh && sh.baseline && sh.baseline.state === 'running' ? ' · Hydrogen is checking the flagged steps…' : '')}</small>`
       : `<small>${v.windows} windows · rule: best run of a panel must sum to its cut-off (${STATUS.rule.min_mass}); ${STATUS.rule.unsure_mass}–${STATUS.rule.min_mass} is "not sure"${(v.missing_windows || []).length ? ' · ' + v.missing_windows.length + ' windows never answered' : ''}</small>`);
   $('#fdone').disabled = true; $('#fstart').disabled = false;
   if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }

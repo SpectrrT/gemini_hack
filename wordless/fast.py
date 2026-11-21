@@ -347,6 +347,46 @@ class Session(signs.Session):
         except Exception as e:                       # no answer in time, or an unreadable one: the frame answers stand
             return {"ok": False, "error": f"{type(e).__name__}: {e}"[:160]}
 
+    def _text(self, v):
+        """The verdict in words, from its lists."""
+        name = {g["id"]: g["name"] for g in self.kit["signs"]}
+        num = lambda sid: f"step {self.step_ids.index(sid) + 1}"
+        got, parts = v["wrong"], []
+        for sid in v["skipped"]:
+            parts.append(f"{num(sid)} was {name.get(got[sid], '?')}, not {name[self.card['steps'][self.step_ids.index(sid)]['pose']]}"
+                         if sid in got else f"{num(sid)} never happened")
+        if v["unsure"]:
+            parts.append("not sure about " + ", ".join(num(s) for s in v["unsure"]))
+        if v["out_of_order"]:
+            parts.append(", ".join(num(s) for s in v["out_of_order"]) + " done out of order")
+        if v["extra"]:
+            parts.append("extra: " + ", ".join(name.get(x, x) for x in v["extra"]))
+        if not v["performed"]:
+            parts = ["nothing recognised"]
+        elif not parts:
+            parts = [f"all {len(self.step_ids)} steps seen, in order"]
+        return "; ".join(parts + list(v.get("notes") or []))
+
+    def second_vote(self, hydrogen_skipped, lat=None):
+        """Hydrogen has watched the whole run once (fast.one_call). Its job here: confirm what the frames flagged.
+        "Never happened" stands only when the frames AND Hydrogen both say so; a flagged step Hydrogen saw
+        performed becomes "not sure". Hydrogen cannot un-see a step the frames saw, so a clean run stays clean
+        and its verdict never waits for this call. (16 cooking recordings, docs/EVAL.md: flagging only what both
+        agree on cut false "never happened" from 17 and 12 for either alone to 2.)"""
+        with self.lock:
+            v = self.verdict
+            if not v or v.get("second") or (v.get("review") or {}).get("ok"):
+                return v
+            theirs = set(hydrogen_skipped or [])
+            softened = [sid for sid in v["skipped"] if sid not in theirs]
+            v["skipped"] = [sid for sid in v["skipped"] if sid in theirs]
+            v["unsure"] = v["unsure"] + softened
+            for sid in softened:
+                v["wrong"].pop(sid, None)
+            v["second"] = {"model": config.MODELS["hydrogen"], "lat": lat, "confirmed": list(v["skipped"]), "softened": softened}
+            v["text"] = self._text(v)
+            return v
+
     def finish(self, wait_s=3.0, backfill_s=6.0):
         if self.verdict is not None:
             return self.verdict
@@ -363,39 +403,25 @@ class Session(signs.Session):
                     marks[sid] = "doubt"
                     got.pop(sid, None)
                     doubted.append(sid)
-        name = {g["id"]: g["name"] for g in self.kit["signs"]}
-        num = lambda sid: f"step {self.step_ids.index(sid) + 1}"
         skipped = [sid for sid in self.step_ids if marks[sid] in ("skipped", "wrong")]
         moved = [sid for sid in self.step_ids if marks[sid] == "moved"]
         unsure = list(doubted)
         if seen is by_frames and res["frames"] and res["missing_frames"] > res["frames"] * 0.2:   # too many frames unanswered to say "never"
             unsure, skipped = unsure + skipped, []
-        parts = []
-        for sid in skipped:
-            parts.append(f"{num(sid)} was {name.get(got[sid], '?')}, not {name[self.card['steps'][self.step_ids.index(sid)]['pose']]}"
-                         if sid in got else f"{num(sid)} never happened")
-        if unsure:
-            parts.append("not sure about " + ", ".join(num(s) for s in unsure))
-        if moved:
-            parts.append(", ".join(num(s) for s in moved) + " done out of order")
-        if extra:
-            parts.append("extra: " + ", ".join(name.get(x, x) for x in extra))
-        if not seen:
-            parts = ["nothing recognised"]
-        elif not parts:
-            parts = [f"all {len(self.step_ids)} steps seen, in order"]
+        name = {g["id"]: g["name"] for g in self.kit["signs"]}
+        notes = []
         if res["missing_frames"] and seen is by_frames:
-            parts.append(f"{res['missing_frames']} frames got no answer")
+            notes.append(f"{res['missing_frames']} frames got no answer")
         if review and "error" in review:
-            parts.append("whole-run review did not answer")
+            notes.append("whole-run review did not answer")
         v = {"seen": [sid for sid in self.step_ids if marks[sid] == "seen"], "unsure": unsure, "skipped": skipped,
              "out_of_order": moved, "extra": extra, "wrong": got, "order_violations": [], "scores": {}, "thresholds": {},
              "windows": res["frames"] - res["missing_frames"], "missing_windows": [],
              "review": review and {k: review[k] for k in ("ok", "model", "lat", "error") if k in review},
              "by_frames": [name.get(x, x) for x in by_frames],
              "clean": bool(seen) and not skipped and not unsure and not extra and not moved,
-             "performed": [name.get(x, x) for x in seen], "latency": res.get("latency"),
-             "text": "; ".join(parts)}
+             "performed": [name.get(x, x) for x in seen], "latency": res.get("latency"), "notes": notes}
+        v["text"] = self._text(v)
         self.verdict = v
         return v
 

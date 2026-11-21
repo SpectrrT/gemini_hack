@@ -156,3 +156,24 @@ def test_whole_run_review_decides_and_frames_can_only_add_doubt(card, monkeypatc
     monkeypatch.setattr(fast.Session, "_review", lambda self: {"ok": False, "error": "TimeoutError"})
     _, v = perform(card, ["red", "dark", "red", "blue"])
     assert v["skipped"] == ["q02"] and v["text"].endswith("whole-run review did not answer"), v
+
+
+def test_hydrogen_second_vote_confirms_or_softens_what_the_frames_flagged(card):
+    """card steps: red, green, red, blue. The frames flag a step; the one Hydrogen call on the same run votes."""
+    from wordless import config
+    # Hydrogen agrees the step never happened: the flag stands
+    s, v = perform(card, ["red", "dark", "red", "blue"])
+    assert v["skipped"] == ["q02"] and "second" not in v
+    v = s.second_vote(["q02"], lat=4.2)
+    assert v["skipped"] == ["q02"] and v["unsure"] == [] and v["text"] == "step 2 never happened", v
+    assert v["second"] == {"model": config.MODELS["hydrogen"], "lat": 4.2, "confirmed": ["q02"], "softened": []}
+    # Hydrogen saw the step the frames missed: "not sure", never a flat "never happened"
+    s, v = perform(card, ["red", "dark", "red", "blue"])
+    v = s.second_vote([])
+    assert v["skipped"] == [] and v["unsure"] == ["q02"] and v["text"] == "not sure about step 2" and not v["clean"], v
+    assert s.second_vote(["q02"])["unsure"] == ["q02"]                     # a second answer changes nothing
+    # Hydrogen cannot un-see a step the frames saw: a clean run stays clean
+    s, v = perform(card, ["red", "green", "red", "blue"])
+    assert v["clean"]
+    v = s.second_vote(["q01", "q03"])
+    assert v["clean"] and v["skipped"] == [] and v["unsure"] == [] and v["second"]["confirmed"] == [], v

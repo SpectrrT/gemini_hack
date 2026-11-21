@@ -252,6 +252,7 @@ def _start_fast_baseline(s):
         t0 = time.time()
         try:
             h = fast.one_call(s)
+            s.second_vote(h["skipped"], h.get("lat"))       # the same call is the second vote on what our frames flagged
             nums = [cards.panel_number(s.card, x) for x in h["skipped"]]
             out = {"state": "done", "skipped": h["skipped"], "lat": h.get("lat"),
                    "text": ("step " + ", ".join(map(str, nums)) + " never happened") if nums else f"all {len(s.card['steps'])} steps performed"}
