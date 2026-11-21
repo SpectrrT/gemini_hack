@@ -26,7 +26,7 @@ Nothing is typed at any point. It does not use audio.
 - `gemini-4-carbon` (Gemini 4) watches the teaching clip once and lists the distinct steps in order.
 - `gemini-decision-1` (Decisions API) labels every teaching frame to find each step's clearest moment, runs the
   card's self-test, and during a check answers "which step is this frame?" about eight times a second.
-- `gemini-3-pro-image` (not a Gemini 4 model) redraws each clearest frame as a line-art panel.
+- `gemini-3-pro-image` redraws each clearest frame as a line-art panel.
 - `gemini-4-hydrogen` (Gemini 4) reviews the whole run afterwards as a second vote. "Never happened" stands
   only when the frames and Hydrogen both say so; otherwise the step becomes "not sure".
 - Lining the frame answers up against the card and writing the verdict is plain code (`wordless/decode.py`).
@@ -50,9 +50,9 @@ the plate", and the first version confused them in 11 of 16 recordings. A step h
 can be missed. It cannot see someone undo a step. Order errors are not claimed. The full list is under "Known
 gaps" in the README.
 
-**Built at the event.** Everything in the repository was written on Nov 21 2026 after 10:30 AM; nothing existed
-before. The CaptainCook4D footage and labels, the Gemini models and the libraries in `requirements.txt` are not
-ours. See "What was built at the event" in the README.
+**Built at the event.** Everything in the repository was written and done during the Hackathon. But the
+CaptainCook4D footage and labels, the Gemini models and the libraries in `requirements.txt` are not ours. See
+"What was built at the event" in the README.
 
 ## One-breath answers for judges
 
