@@ -179,7 +179,7 @@ The one call decides, and the window checkers can only turn its "not performed" 
   report a false "never happened" that the one call does not also report. It gives as many fully right
   verdicts as the one call alone (13 of 16).
 - **What it does not fix.** The verdict now waits for the Hydrogen call, which took 8 to 109 s on these
-  recordings (median 14 s). The card's own panels still cannot tell the sprinkle steps apart; under this rule
+  recordings (median 18 s). The card's own panels still cannot tell the sprinkle steps apart; under this rule
   the card image contributes almost nothing to the verdict that the text-only checker does not. The three
   remaining false "never happened" are in off-script recordings (12_41 plate and cheese, 12_48 dry).
 - **No rule beats the one call on fully right verdicts.** The gain is fewer wrong accusations, paid for
