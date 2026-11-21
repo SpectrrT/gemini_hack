@@ -1,71 +1,71 @@
-# Video: shot list and script (60 s or less)
+# Wordless: the 60-second video
 
-One raw screen-and-camera take can follow this: screen recording of the app, plus (optional) a face or hands
-camera inset. The product is on screen within the first 10 seconds (it is on screen from 0:00 here). Read the script in one go at a steady pace; each block's seconds
-are a guide, and the total is about 58 s at 140 words per minute. Numbers are from `README.md` "State of the
-evidence" (tag `[R:..]`); re-check them at 15:30.
+Two presenters. Whoever is not on camera narrates, so hands are always free.
+Marvin teaches; Tensae follows and skips a step. Two different people is the point: the card was made from
+one person and checks another.
 
-## Honest-labelling rules (apply to every shot)
+Target: 58 seconds, about 130 spoken words. Four clips, recorded separately, joined in Recordly.
 
-1. Any replayed or recorded run carries an on-screen label for the whole shot: **"REPLAY: recorded API answers
-   (CaptainCook4D footage)"**. The app is started with `WORDLESS_TAPE=replay`; the label can be a text overlay if
-   the UI has none.
-2. Say "recorded" or "replayed" out loud in that shot (it is in the script).
-3. "LIVE" appears on screen only if the camera and the API are really live in that shot. If the table gate has
-   not run, there is no live shot; do not fake one.
-4. Footage credit once at the end: "Footage: CaptainCook4D dataset, Apache 2.0".
-5. Show the failure number on screen at the same time it is spoken. Do not cut it.
-6. Captions for everything spoken, burned in (the hall is loud). No agent or token counts in the first sentence.
-7. Say "tested instruction sheet" or "card", never "coach" or "analyzer".
+## The routine
 
-## Script (spoken text, 138 words)
+Six hand signs, each held about one second, hands down for a beat between them, hands down at the start and end:
 
-> Every routine gets taught in words nobody reads. So film it once.
->
-> This is Wordless. One demonstration, a tomato salad, becomes a card of line drawings. No words.
->
-> Gemini 4 Hydrogen names the steps. The Decisions API finds each one in the footage. Argon plans which steps matter.
->
-> Now a different person, a different kitchen. The card watches. Panels turn green as each step is seen.
->
-> This run skips the last four steps. Those panels stay grey, and it says: panels six to nine never happened.
->
-> That is recorded footage replayed through the real code, not live.
->
-> Across four recordings, every skipped step was flagged, and the clean run raised no false alarms.
->
-> It also breaks. On an off-script cook it wrongly said two steps never happened.
->
-> Film it once. The demonstration is the manual, and the test.
+1. closed fist  2. one finger up  3. peace sign  4. open palm  5. thumbs up  6. palms together
 
-Word count of the spoken text: 138 (`wc -w`, checked). Numbers spoken: four recordings `[R:card dev, 12_26, 12_41]`;
-skipped steps all flagged `[R:card dev, 12_26]`; clean run no false alarms `[R:card dev]`; two false
-"never happened" `[R:12_41]`; panels six to nine is the 12_43 verdict in the README's Follow notes `[R:run it]`.
-If the words "four recordings" change at the freeze, change them here and on screen.
+These six are the ones measured (6 of 6 taught and checked down to 0.45 s a sign on generated clips).
+Chest-up framing, plain background, even light, both hands inside the frame the whole time.
 
-## Shot list
+## Clips
 
-| # | Time | Picture | Voice | On-screen text / label |
-|---|---|---|---|---|
-| 1 | 0:00 to 0:06 | The product from frame one: the Teach tab with the teaching clip playing (a camera inset of you or your hands at the counter is optional) | "Every routine gets taught in words nobody reads. So film it once." | none |
-| 2 | 0:06 to 0:14 | Teach tab: "Rebuild the tomato card from recorded answers"; panels appear one by one; card with 9 panels fills the screen | "This is Wordless. One demonstration, a tomato salad, becomes a card of line drawings. No words." | **REPLAY: recorded API answers (CaptainCook4D footage)**; "card from recording 12_17" |
-| 3 | 0:14 to 0:24 | The "How it works" table (README, or a slide): highlight Hydrogen, Decisions, Argon rows in turn | "Gemini 4 Hydrogen names the steps. The Decisions API finds each one in the footage. Argon plans which steps matter." | model names as written in the README table |
-| 4 | 0:24 to 0:32 | Follow tab, recording 12_43 selected, press Start; video on the left, card on the right, panels 1 to 5 turning green | "Now a different person, a different kitchen. The card watches. Panels turn green as each step is seen." | REPLAY label stays on |
-| 5 | 0:32 to 0:41 | Same run to the end: panels 6 to 9 stay grey, the verdict text appears: panels 6 to 9 never happened | "This run skips the last four steps. Those panels stay grey, and it says: panels six to nine never happened." | zoom on the verdict line |
-| 6 | 0:41 to 0:44 | Hold the verdict | "That is recorded footage replayed through the real code, not live." | **REPLAY** label enlarged |
-| 7 | 0:44 to 0:51 | Proof tab: "Run the eval", the three-column table fills in; keep 12_10, 12_43, 12_26 rows visible | "Across four recordings, every skipped step was flagged, and the clean run raised no false alarms." | the numbers as shown in the table, tagged "development recordings" where applicable |
-| 8 | 0:51 to 0:55 | Same table, scroll to / highlight the 12_41 row: "2 false never happened" | "It also breaks. On an off-script cook it wrongly said two steps never happened." | "12_41, off-script: 2 false 'never happened'" |
-| 9 | 0:55 to 0:59 | Back to the face/hands camera, or the final card with the verdict | "Film it once. The demonstration is the manual, and the test." | "Wordless. Footage: CaptainCook4D dataset, Apache 2.0" and the repo URL |
+| Clip | Shown as | What happens on screen | Who talks |
+|---|---|---|---|
+| A. Hook + teach | 0:00 to 0:11, real time | Page on "Show it once". Marvin does the six signs in about 7 s. | Tensae |
+| B. Card builds | 0:11 to 0:17, sped up, with the caption "card build: about 35 s, shown 6x" | Stages tick through, the six panels appear. | Tensae |
+| C. Check with a skip | 0:17 to 0:38, REAL TIME, no cuts inside | "Check someone". Tensae does signs 1, 2, skips 3, holds 4 for two full seconds, then 5, 6. Panel 3 turns red and the guide says "You skipped this" while he is still going. Verdict, evidence frames and the Hydrogen panel land. | Marvin |
+| D. Proof | 0:38 to 0:52 | Proof tab, top table: 17, 12, 4. Then cut back to the six-panel card. | Tensae |
+| E. Close | 0:52 to 0:58 | Verdict screen from clip C, or the card. | Marvin, then Tensae |
 
-Total about 59 s. If it runs long, cut shot 3's highlighting, not the failure shot.
+## Script
 
-## Take plan (one pass)
+**A (Tensae, 0:00)** "This is Wordless. Show it once, and it catches the next person's mistake as they make it.
+Marvin shows six hand signs. Nothing typed, no step count."
 
-- Pre-roll: start the server with `WORDLESS_TAPE=replay`, open http://localhost:5119, pre-select 12_43.
-  Check that the "Rebuild the tomato card" button works before recording.
-- Record screen and (optional) camera together in one take; read the script from the table above; leave a
-  beat at each row boundary so the cuts are clean.
-- If a live webcam shot is added after the table gate: record it as a separate row with a **LIVE** label, and
-  do not change the REPLAY shots. It must show the real latency, and its result must be stated even if wrong.
-- Export 1080p, under 60 s, add captions from the script (no words on the cards; captions are on the video,
-  not the product).
+**B (Tensae, 0:11)** "Gemini 4 Carbon finds the steps, the Decisions API picks each one's clearest frame, and the
+image model draws the card. No words on it."
+
+**C (Marvin, 0:17)** "Now Tensae follows it. Every camera frame is one Decisions question, eight a second.
+He skips a step..." *(wait for the red panel)* "...and it's caught while he's still going. The verdict names
+the step, shows the camera frame behind every other one, and one Hydrogen call checks the same run."
+
+**D (Tensae, 0:38)** "We pushed it until it broke. On sixteen public recordings of other people, our first
+version raised seventeen false alarms. A whole-clip review cut that to four. At half a second a sign, the model
+saw two of six. We slowed the clip for it: six of six."
+
+**E (Marvin, 0:52)** "Steps that look alike are still its weak point."
+**(Tensae)** "One clip, no labels, half-second steps. Wordless: teach anyone anything."
+
+About 135 words. If it runs long, cut the last sentence of C first, then the "two of six" sentence in D.
+
+## Honest-labelling rules
+
+- Clip C is real time with no cut between Start and the verdict. It is the claim; it cannot be edited.
+- Clip B is sped up and says so on screen.
+- If a recorded run (`R`) is ever shown, its yellow "Recorded run" banner stays visible.
+- Every number spoken is in the README or on the Proof tab. Do not round them up.
+- If the alert does not fire or the verdict is wrong in a take, retake. Do not narrate over a wrong result.
+
+## Before recording
+
+1. Stop everything else that uses the API key (other sessions, evals). Answers took about 0.55 s on a quiet key
+   and several seconds on a busy one; a slow key delays the red alert.
+2. Restart the server, reload the page, browser full screen at 110 to 125% zoom, bookmarks bar hidden.
+3. Do the whole thing once without recording. The clean version must show six ticks and no alert; the skip
+   version must turn panel 3 red before Tensae finishes.
+4. For the skip: hold sign 4 for two full seconds. The alert needs the next step held solidly before it speaks.
+5. Hydrogen's second vote can change "never happened" to "not sure" a few seconds after the verdict if it thinks
+   it saw the step. Keep recording five seconds past the verdict; if it flips, retake.
+6. Recordly: record screen plus webcam bubble off (the page already shows the camera). Let auto-zoom follow the
+   verdict, or add one manual zoom on the red panel and one on the verdict.
+7. Add captions for the spoken lines: the hall is loud and many people watch muted.
+8. Title the video "Wordless: show it once, it catches the next person's mistake". Open the link in a private
+   window to check it plays logged out.
