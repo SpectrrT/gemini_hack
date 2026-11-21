@@ -2,13 +2,10 @@
 
 **Do it once on camera. Your demonstration becomes the manual and the test.**
 
-Two ways in, one idea: show it once, and the pictures both teach the next person and check them.
-
-- **Routines** (`/`): film a hands-on routine once. Gemini turns it into a picture card with no words, drawn
-  from the real keyframes. The same card then watches the next person and names the step they skipped.
-- **Sequences** (`/signs`): show the camera a few poses, one photo each, and name sequences of them. The camera
-  then names which fast sequence someone performed, or says which sign was wrong, missing or extra. Nothing in
-  it is specific to one domain: hand signals, finger counts, hand-washing positions, positions of a tool.
+Show it once on camera: any hands-on routine, at any speed, with any number of steps, from a slow kitchen
+task to a quick series of hand signs. Nobody names the steps or says how many there are. Gemini finds them,
+draws each one as a panel with no words, and the card then watches the next person frame by frame and says
+which step never happened, which was something else, and what was extra.
 
 Gemini 4 NYC Hackathon, Nov 21 2026 (Element 119).
 
@@ -39,9 +36,12 @@ recipe (5 people, 6 kitchens; 12 of them never scored before the eval). Answer k
 - **Order errors** are unreliable (6 false reports on one recording). Only skipped steps are claimed.
 - **Short steps** (under about 4 s) give one or two windows and cannot reach the cut-off on the card alone.
 
-**Sequences** (`/signs`). Plumbing tested against the fake API; on the real API one question per frame runs at
-about 13 answers a second, about 1 s each. Not yet measured on people performing poses: no accuracy number is
-claimed.
+**Fast path (what the page uses now).** Teaching and checking run on single frames, five a second, instead
+of 2 s windows. On a 25 s slice of real footage it built a 4-step card in 75 s, found a step 1.6 s long, and the
+card recognised 4 of 4 steps in its own clip; fed back through the live route with one step cut out, it reported
+that step as never happened. That is one clip, the same person and kitchen: a smoke test, not an accuracy
+number. Answer time was 1.6 s per frame on a quiet key and up to 8 s when other jobs shared it. The 16-recording
+numbers above are for the 2 s window card with review, which older cards still use.
 
 **Not yet run:** a routine taught and followed from a webcam at a table; the table gate on real clips.
 
@@ -74,25 +74,21 @@ recording the one-call baseline runs beside ours and both verdicts are shown. `R
 run with the network off. After a verdict, "Keep the card" shows a QR code to the printable card; a phone
 needs `WORDLESS_PUBLIC_URL` (default: this machine's LAN address).
 
-### Sequences (needs a key and a camera)
+### Live (needs a key and a camera)
 
 ```bash
 .venv/bin/python server.py
 ```
 
-Open http://localhost:5119/signs.
+Open http://localhost:5119.
 
-1. Pick a preset (finger counts is the easiest first try) or name a blank kit, and press New kit.
-2. "Teach all remaining": each pose gets a 3 s countdown and one photo. A line drawing of each pose is made
-   in the background.
-3. Name a sequence, click poses in order, save. Presets add their sequences once their poses are taught.
-4. Start, perform a sequence, pause. The strip fills in as poses are recognised and the verdict names the
-   sequence. "Check someone doing it" watches one chosen sequence and marks each sign; "Show the steps" opens
-   the printable wordless strip.
+1. **Show it once**: record the routine from the camera, or drop a clip. Any length, any number of steps.
+   The card builds itself (about a minute for a 25 s clip).
+2. **Check someone**: press Start and do the routine. Panels light up in order; when the person stops, the
+   verdict names what was missed, wrong or extra. A step needs to be held for about half a second.
 
-A routine card can also be opened as a kit ("from routine: ..." in the preset list), which checks it frame by
-frame instead of in 2 s windows. Camera previews are mirrored on screen only; frames sent to the models are not
-flipped.
+Camera previews are mirrored on screen only; frames sent to the models are not flipped. Cards built before the
+fast path (the tomato card) are still checked in 2 s windows with the whole-clip review.
 
 ## Tests
 
@@ -102,7 +98,8 @@ flipped.
 
 - `test_tracker.py`: the verdict rule.
 - `test_whole_clip_review.py`: the review rule that combines the card with the one whole-clip call.
-- `test_signs.py`: the sequence decoder, and kits, sessions and the HTTP path against the fake.
+- `test_fast.py`: one clip in (a repeated step included), a card out, then clean, skipped, wrong and extra runs.
+- `test_signs.py`: the frame decoder and frame-by-frame sessions against the fake.
 - `test_shell.py`: clock, deadline, status line, baseline beside ours, QR card, recorded-run playback.
 - `test_managed.py`: the blind reader against a fake.
 - `test_replay_tomato.py`: the recorded real answers still give the reported numbers.
@@ -147,7 +144,8 @@ recording, so a session filmed at the table can be replayed if the network fails
 | follow | `gemini-decision-1` | Card image plus a clip or two stills: which panel is this? Once a second. |
 | verdict | code | Heaviest-run rule in `wordless/tracker.py`. Seen, never happened, or not sure. |
 | review | `gemini-4-hydrogen` | One call on the whole clip (or the session's saved stills) checks the verdict: it decides "never happened"; the card can only make that "not sure". |
-| sequences | `gemini-decision-1` | `/signs`: reference sheet plus one frame, several a second: which pose? Code decodes the sequence and names it. |
+| fast teach | `gemini-4-hydrogen`, `gemini-decision-1`, image model | Hydrogen lists the distinct steps it sees; the Decisions API labels every frame; code finds the steps in order and their clearest frames; the image model draws them. |
+| fast follow | `gemini-decision-1` | Reference sheet plus one camera frame, five a second: which step? Code lines the answers up against the card. |
 
 The verdict is computed from every buffered window when the follower is done. Windows whose call failed or
 is still in flight are asked again first (up to 10 s). A window that stays unanswered is listed in the
@@ -166,19 +164,18 @@ wordless/checker.py        the questions put to the Decisions API
 wordless/tracker.py        presence and order rule, verdict
 wordless/follow.py         live and replay sessions; whole-clip review of the verdict
 wordless/baseline.py       one Hydrogen call on the whole clip
-wordless/decode.py         sequences: frame answers -> signs -> which known sequence
-wordless/signs.py          sequences: kits, the per-frame question, sessions, clip scoring
-wordless/signs_routes.py   routes for /signs
+wordless/fast.py           the fast path: one clip -> card with any number of steps; frame-by-frame follow
+wordless/decode.py         frame answers -> steps performed -> lined up against the card
+wordless/signs.py          reference sheet, the per-frame question, frame sessions
 wordless/managed.py        blind reader on Managed Agents (see docs/MANAGED.md)
 wordless/evalrun.py        eval on labelled recordings
 wordless/table.py          table prep: test clips with an answer key, the table gate
 server.py                  Flask server, demo shell (clock, deadline, baseline, QR, recorded runs)
-web/                       index.html (Routines), signs.html (Sequences), wordless.css, fonts, logo
+web/                       index.html, wordless.css, fonts, logo
 scripts/eval_wide.py       the 16-recording eval; eval_rules.py re-scores verdict rules without the API
 scripts/fetch_captaincook.py   downloads the public recordings and labels
 fixtures/tomato/           answers recorded against the real API
 fixtures/eval_wide/        per-recording answers behind docs/EVAL.md
-fixtures/sequence_presets.json   example kits for /signs
 docs/                      EVAL.md, MANAGED.md, SUBMISSION.md, VIDEO.md, LICENCES.md, ui/ screenshots
 tests/                     tests and the fake API
 ```
@@ -192,20 +189,17 @@ runs, at 2.5 to 6 minutes a run: too noisy and too slow to rely on. Details in [
 
 ## Known gaps
 
-- Neither mode has been run with a person at a camera at a table yet. All routine numbers come from recorded
-  footage; sequences have no accuracy number.
-- The whole-clip review needs the whole clip, so the final routine verdict arrives some seconds after the
-  person stops (capped at 45 s; if the review does not answer, the card's own verdict is shown and says so).
-- The review rule was chosen after seeing all 16 eval recordings; it has not been confirmed on fresh ones.
-- Look-alike steps (several "tip a small container" steps) are what the card confuses. The review hides this
-  in the verdict; the live panel-by-panel view can still light the wrong look-alike panel.
-- Routine steps of 4 to 5 s give two or three windows; hold each step about 8 s, or open the card as a
-  sequence kit for the frame-by-frame path (not yet measured on recordings).
-- Sequences: poses must be holdable for about half a second and look different from each other. Sub-second
-  flicks and poses that differ only in small finger detail are expected to fail; a repeated pose needs a pause.
-- Order errors in routines are unreliable and not claimed.
+- Not yet run with a person at a camera at a table. The fast path has only a one-clip smoke test; its accuracy
+  on other people is unmeasured.
+- Fast path: a step must be held about half a second and look different from the others. Two identical steps
+  in a row need a visible pause between them, and when one of two identical steps is missed the verdict may
+  name the wrong one of the pair. Steps the model named but could not find in the frames are left off the card.
+- Fast path: answer time depends on API load (1.6 s to 8 s per frame measured); slow answers delay the lights,
+  not the verdict.
+- Teaching takes about a minute for a 25 s clip; most of it is Hydrogen naming the steps and the self-test.
+- Older 2 s window cards: the whole-clip review was chosen after seeing all 16 eval recordings and is not
+  confirmed on fresh ones; look-alike steps still light the wrong panel live; order errors are not claimed.
 - The end-state second vote exists as a question (`checker.end_state`) but is not wired into the verdict.
-- Preset sequences are examples written from memory; check them before relying on them.
 
 ## Licence
 
