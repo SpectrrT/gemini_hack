@@ -105,9 +105,9 @@
   <span class="tag">Show it once on camera. It becomes picture steps, and a live check of the next person.</span>
   <span id="mode" class="pill">…</span>
   <nav>
-    <button data-tab="teach" aria-label="Show it once"><span class="sym">●</span><span class="words"> 1 · Show it once</span></button>
-    <button data-tab="follow" class="on" aria-label="Check someone"><span class="sym">▶</span><span class="words"> 2 · Check someone</span></button>
-    <button data-tab="proof" class="quiet" aria-label="Proof"><span class="sym">≡</span><span class="words"> Proof</span></button>
+    <button data-tab="teach">1 · Show it once</button>
+    <button data-tab="follow" class="on">2 · Check someone</button>
+    <button data-tab="proof" class="quiet">Proof</button>
     <button data-tab="prep" class="quiet" id="navPrep" hidden>Prep</button>
   </nav>
   <div id="statusline" aria-live="off">
@@ -187,17 +187,16 @@
         <h2>Show it once <span class="note">any length, any number of steps</span></h2>
         <div id="tdrop"><video id="tcam" autoplay muted playsinline></video></div>
         <div class="row">
-          <button class="act primary" id="trec" aria-label="Record"><span class="sym">●</span><span class="words"> Record</span></button>
+          <button class="act primary" id="trec">● Record</button>
           <span id="trecT" class="note"></span>
-          <span class="tprog" id="tprog" aria-hidden="true"></span>
         </div>
-        <div class="row words">
+        <div class="row">
           <label class="small" for="tfile">or drop a clip</label><input type="file" id="tfile" accept="video/*">
         </div>
-        <div class="row words">
+        <div class="row">
           <button class="act" id="ttape">Rebuild the tomato card from recorded answers</button>
         </div>
-        <p class="note words" id="tnote"></p>
+        <p class="note" id="tnote"></p>
       </div>
     </div>
     <div>
@@ -209,7 +208,7 @@
       <div id="tcardWrap" style="margin-top:18px; display:none">
         <div class="row"><b id="tcardTitle"></b><span class="note" id="tcardMeta"></span>
           <label class="note"><input type="checkbox" id="tshowkf"> show the real keyframes</label>
-          <button class="act primary" id="tgo" aria-label="Now someone else does it"><span class="sym">▶</span><span class="words"> Now someone else does it</span></button></div>
+          <button class="act primary" id="tgo">Now someone else does it →</button></div>
         <div class="card" id="tcard"></div>
         <p class="note" id="tdropped"></p>
       </div>
@@ -225,8 +224,8 @@
         <h2>Now someone else does it</h2>
         <video id="fvid" muted playsinline></video>
         <div class="row">
-          <button class="act primary" id="fstart" aria-label="Start"><span class="sym">▶</span><span class="words"> Start</span></button>
-          <button class="act" id="fdone" aria-label="Done" disabled><span class="sym">■</span><span class="words"> Done (space)</span></button>
+          <button class="act primary" id="fstart">Start</button>
+          <button class="act" id="fdone" disabled>Done (space)</button>
           <span class="clock" id="fclock" title="time since Start">00:00</span>
         </div>
         <div class="pace" id="pace" title="pace light: hold each step until the bar fills (8 s)"><i></i></div>
@@ -262,8 +261,7 @@
     </div>
     <div>
       <div class="recbanner" id="recbanner"></div>
-      <div class="pv" id="pv" role="img" aria-label="result"><span class="pix" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
-      <div class="stripRow"><div class="card" id="fcardGrid"></div><div class="extras" id="extras"></div></div>
+      <div class="card" id="fcardGrid"></div>
       <div class="vs">
         <div><span class="lab">Wordless card · watching during the task</span>
           <div class="verdict" id="verdict">—<small>Press Start. Each panel lights up as its step is seen; the verdict names what was missed, wrong or extra.</small></div></div>
@@ -300,8 +298,6 @@
   </div>
 </section>
 </main>
-<aside id="drawer" aria-label="Presenter notes"></aside>
-<button id="pbtn" aria-label="Presenter notes (P)"></button>
 
 <script>
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -313,14 +309,6 @@ const api = async (url, body) => {
 };
 const COLORS = ['#1f5fd0','#d5392b','#1f9d55','#e0a100','#8e44ad','#00a3a3','#e2711d','#5b6b00','#c2185b','#444','#0b7285','#7a4a00'];
 let STATUS = null, CARD = null;
-
-// ---------------------------------------------------------------- presenter drawer (P): everything in words lives here
-const drawer = $('#drawer');
-['#statusline', '#follow .vs', '#follow .scope', '#fstat', '#ferr', '#fmore', '#sealed'].forEach(sel => { const el = $(sel); if (el) drawer.appendChild(el); });
-$('#fmore').open = true;
-const presenter = on => document.body.classList.toggle('presenter', on === undefined ? !document.body.classList.contains('presenter') : on);
-$('#pbtn').onclick = () => presenter();
-document.addEventListener('keydown', e => { if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); presenter(); } });
 
 // ---------------------------------------------------------------- tabs
 $$('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
@@ -356,32 +344,17 @@ function renderCard(el, card, opts = {}) {
        <img src="/cards/${card.id}/${opts.kf ? s.keyframe : s.panel}?v=${encodeURIComponent(card.created || '')}">
        <span class="num">${k + 1}</span><span class="mark"></span><span class="mass"></span></div>`).join('');
 }
-function posePic(id) {                                      // a picture for any pose id (card.poses), or for a step id
-  if (!CARD) return '';
-  const pose = (CARD.poses || {})[id], step = CARD.steps.find(s => s.pose === id || s.id === id), f = (pose && pose.panel) || (step && step.panel);
-  return f ? `/cards/${CARD.id}/${f}?v=${encodeURIComponent(CARD.created || '')}` : '';
-}
-const MARKS = {seen:'✓', unsure:'?', skipped:'✕', wrongp:'✕', swap:'⇄'};
 function paintPanels(el, panels, now, verdict) {
-  const V = verdict || {}, wrong = V.wrong || {}, swapped = V.out_of_order || [];
   el.querySelectorAll('.panel').forEach(p => {
     const sid = p.dataset.step, st = panels[sid] || {state:'pending', mass:0};
     let cls = st.state === 'pending' ? '' : st.state === 'wrong' ? 'skipped' : st.state;
-    if (verdict) cls = sid in wrong ? 'wrongp' : V.skipped.includes(sid) ? 'skipped' : swapped.includes(sid) ? 'swap' : V.unsure.includes(sid) ? 'unsure' : V.seen.includes(sid) ? 'seen' : '';
-    p.classList.remove('seen', 'unsure', 'skipped', 'swap', 'wrongp', 'now');
+    if (verdict) cls = verdict.skipped.includes(sid) ? 'skipped' : verdict.unsure.includes(sid) ? 'unsure' : (verdict.extra || []).includes(sid) ? 'extra' : verdict.seen.includes(sid) ? 'seen' : '';
+    p.classList.remove('seen', 'unsure', 'skipped', 'extra', 'now');
     if (cls) p.classList.add(cls);
     if (!verdict && now === sid) p.classList.add('now');
-    p.querySelector('.mark').textContent = MARKS[cls] || '';
+    p.querySelector('.mark').textContent = cls === 'seen' ? '✓' : cls === 'unsure' ? '?' : cls === 'skipped' ? '✕' : cls === 'extra' ? '+' : '';
     p.querySelector('.mass').textContent = st.mass ? st.mass.toFixed(1) : '';
-    const old = p.querySelector('.inset'); if (old) old.remove();
-    if (cls === 'wrongp') { const src = posePic(wrong[sid]); if (src) p.insertAdjacentHTML('beforeend', `<img class="inset" src="${src}" alt="">`); }   // what was done instead
   });
-}
-// the wordless verdict: one large mark for the whole run, and any extra steps after the strip, each with a plus
-function paintPicture(state, verdict) {
-  $('#pv').className = 'pv' + (state === 'run' ? ' run' : state === 'done' ? (verdict.clean ? ' good' : ' bad') : state === 'warn' ? ' warn' : '');
-  $('#extras').innerHTML = state === 'done' ? (verdict.extra || []).map(id => { const src = posePic(id);
-    return `<div class="panel xtra">${src ? `<img src="${src}" alt="">` : ''}<span class="mark">+</span></div>`; }).join('') : '';
 }
 
 // ---------------------------------------------------------------- status line (always visible)
@@ -431,7 +404,6 @@ function resetFollow() {
   $('#recbanner').style.display = 'none'; $('#keep').style.display = 'none';
   $('#base').className = 'base wait'; $('#base').innerHTML = '—<small>Starts with the run on a file recording, so it is ready by the verdict.</small>';
   if (CARD) paintPanels($('#fcardGrid'), {}, null, null);
-  paintPicture('idle');
   idleStatus();
 }
 // the run clock; also the page's own guard: if the server has not stopped the run shortly after the deadline, stop it here
@@ -457,7 +429,6 @@ async function pageDeadline() {
     if (F.sid !== sid || F.shown) return;
     clearInterval(F.poll); clearInterval(F.tick); clearInterval(F.clock); F.shown = true;
     if (F.cam) { F.cam.getTracks().forEach(t => t.stop()); F.cam = null; }
-    paintPicture('warn');
     const el = $('#verdict'); el.className = 'verdict unsure';
     el.innerHTML = `<div class="why">Deadline reached (${F.deadline} s). The server did not answer in time.</div>No verdict<small>The panels show what had been seen when the page last heard from the server. Press R for a recorded run.</small>`;
     $('#fdone').disabled = true; $('#fstart').disabled = false; $('#fdeadline').disabled = false;
@@ -512,7 +483,7 @@ $('#fstart').onclick = async () => {
 };
 function beginRun(s) {
   $('#fdone').disabled = !F.live;                        // a replay finishes by itself
-  paintPicture('run'); startClock(s); paintFollow(s);
+  startClock(s); paintFollow(s);
   if (!F.shown) F.poll = setInterval(pollFollow, 400);
 }
 // R: the announced fallback. Jumps to a recorded run, fed from saved answers only (works with the network off).
@@ -578,8 +549,7 @@ function showVerdict(s) {
     $('#keep').style.display = ''; $('#keepqr').src = `/qr/card/${CARD.id}.svg?u=${encodeURIComponent(sh.card_url)}`;
     $('#keepurl').href = '/print/card/' + CARD.id; $('#keepurl').textContent = sh.card_url.replace(/^https?:\/\//, '');
   }
-  paintPicture('done', v);
-  const wrong = v.skipped.length || (v.extra || []).length || (v.order_violations || []).length || (v.out_of_order || []).length || Object.keys(v.wrong || {}).length;
+  const wrong = v.skipped.length || (v.extra || []).length || (v.order_violations || []).length;
   el.className = 'verdict ' + (v.clean ? 'clean' : wrong ? 'bad' : 'unsure');
   el.innerHTML = (sh && sh.deadline_hit ? `<div class="why">Deadline reached (${sh.deadline_s} s): the session finished itself with ${v.windows}${s.total ? ' of ' + s.total : ''} windows answered.</div>` : '')
     + v.text.charAt(0).toUpperCase() + v.text.slice(1) + (s.fast ? `<small>${s.windows ?? 0} frames read${sh && sh.last_call_s != null ? ' · ' + (+sh.last_call_s).toFixed(2) + ' s per answer' : ''}</small>`
@@ -616,10 +586,8 @@ $$('#sealed button').forEach(b => b.onclick = async () => {
 // ---------------------------------------------------------------- teach
 const WHO = {prepare:'local', name:'Hydrogen', locate:'Decisions API', plan:'Argon', draw:'image model', letters:'Decisions API', selftest:'Decisions API', card:''};
 let T = {cam:null, rec:null, chunks:[], t0:0, timer:null};
-const REC_IDLE = '<span class="sym">●</span><span class="words"> Record</span>';
 function paintStages(events) {                            // whatever stages arrive, in the order they first appear
   const order = [], last = {}; events.forEach(e => { if (!(e.stage in last)) order.push(e.stage); last[e.stage] = e; });
-  $('#tprog').innerHTML = order.map(st => `<i class="${last[st].state}"></i>`).join('');
   $('#stages').innerHTML = order.map(st => { const e = last[st];
     return `<li class="${e.state}"><span class="dot"></span><span><b>${esc(st)}</b><span class="who">${WHO[st] || ''}</span></span><span>${esc(e.detail || e.state)}${e.state !== 'running' ? ` <span class="note">${e.t}s</span>` : ''}</span></li>`; }).join('')
     || '<li class="idle"><span class="dot"></span><span><b>waiting</b></span><span>Record or drop a clip. The steps are found and drawn here.</span></li>';
@@ -664,10 +632,10 @@ $('#trec').onclick = async () => {
   }
   T.chunks = []; T.rec = new MediaRecorder(T.cam, {videoBitsPerSecond: 2500000});
   T.rec.ondataavailable = e => e.data.size && T.chunks.push(e.data);
-  T.rec.onstop = () => { clearInterval(T.timer); $('#trec').innerHTML = REC_IDLE; $('#trecT').textContent = '';
+  T.rec.onstop = () => { clearInterval(T.timer); $('#trec').textContent = '● Record'; $('#trecT').textContent = '';
     const blob = new Blob(T.chunks, {type: T.rec.mimeType});
     buildFrom(blob, 'teach.' + (T.rec.mimeType.includes('mp4') ? 'mp4' : 'webm')); };
-  T.rec.start(); T.t0 = Date.now(); $('#trec').innerHTML = '<span class="sym">■</span><span class="words"> Done, build the card</span>';
+  T.rec.start(); T.t0 = Date.now(); $('#trec').textContent = '■ Done, build the card';
   T.timer = setInterval(() => $('#trecT').textContent = ((Date.now() - T.t0) / 1000).toFixed(0) + ' s', 250);
 };
 
