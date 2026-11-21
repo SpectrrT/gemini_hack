@@ -323,3 +323,26 @@ td.ok { background:var(--green-tint); } td.no { background:var(--red-tint); } td
   button.act, button.mini, nav button { transition:none; scale:none !important; }
 }
 @media print { body { background:#fff; } header { position:static; } }
+
+/* ------------------------------------------------------------ Routines page: projector fit (1280 x 720)
+   The verdict plate sits above the picture card, as on the Sequences page, and the card is capped so that
+   header, verdict and all panel rows are on screen together. Order is visual only; the markup is unchanged. */
+header:has(#statusline) > #mode { display:none; }          /* the status line carries the mode pill */
+#follow .cols > div:last-child { display:flex; flex-direction:column; }
+#follow .cols > div:last-child > .recbanner { order:-3; }
+#follow .cols > div:last-child > .vs, #follow .cols > div:last-child > .verdict { order:-2; margin-top:0; margin-bottom:18px; }
+#follow .vs .verdict { min-height:128px; margin-bottom:6px; }
+#fcardGrid { width:100%; max-width:max(520px, calc((100vh - 318px) * 1.777)); }
+/* state frame drawn above the picture (an inset shadow on the panel itself is hidden by the image) */
+.panel::before { content:""; position:absolute; inset:0; z-index:1; pointer-events:none; box-shadow:inset 0 0 0 8px var(--frame, transparent); transition:box-shadow .2s ease; }
+.panel .num, .panel .mark, .panel .mass { z-index:2; }
+.panel.seen { --frame:var(--green); box-shadow:none; } .panel.unsure { --frame:var(--amber); box-shadow:none; } .panel.skipped { --frame:var(--red); box-shadow:none; }
+.panel .mark { width:38px; height:38px; display:grid; place-items:center; border-radius:50%; background:var(--sheet); border:var(--rule) solid var(--ink); font-size:22px; right:6px; top:6px; }
+.panel .mark:empty { display:none; }
+.panel.seen .mark { background:var(--green-plate); color:var(--ink); } .panel.unsure .mark { background:var(--amber-plate); color:var(--ink); } .panel.skipped .mark { background:var(--red-plate); color:#fff; }
+/* beside the baseline and the QR code the verdict column is narrower: smaller plate type, wider column */
+.vs { grid-template-columns:minmax(0, 2.1fr) minmax(0, 1fr) auto; }
+.vs .verdict:is(.clean, .bad, .unsure) { font-size:clamp(28px, 2.9vw, 44px); }
+.vs .verdict small { font-size:12px; margin-top:6px; }
+.keepbox { max-width:150px; } .keepbox img { width:112px; height:112px; }
+#fcardGrid { max-width:max(520px, calc((100vh - 372px) * 1.777)); }
