@@ -480,14 +480,14 @@ $('#fstart').onclick = async () => {
       v.srcObject = F.cam; await v.play();               // camera first: the clock and the deadline start with the session
       s = await api('/api/follow/live', {card: CARD.id, own_thresholds: own, deadline_s: deadlineS()});
       F.sid = s.id; F.live = true; F.fast = !!s.fast;
-      if (F.fast) {                                      // fast card: one small frame per request, 5 a second
+      if (F.fast) {                                      // fast card: one small frame per request, 8 a second
         const t0 = performance.now(), url = `/api/follow/${F.sid}/frame`; let flying = 0;
         F.tick = setInterval(() => {
           if (flying >= 4) return;                       // the camera is faster than the network: skip, never queue
           flying++;
           fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({i:F.i++, t:(performance.now() - t0) / 1000, image: grab(v, 512)})})
             .catch(() => {}).finally(() => flying--);
-        }, 200);
+        }, 125);
       } else {
       const post = (body, again) => fetch(`/api/follow/${F.sid}/frame`, {method:'POST', headers:{'Content-Type':'application/json'}, body})
         .then(r => { if (!r.ok) throw 0; }).catch(() => { if (again) post(body, false); else F.lost = (F.lost || 0) + 1; });

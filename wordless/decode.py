@@ -15,10 +15,10 @@ import math
 
 NONE = "none"
 
-STAY = 0.80          # probability of keeping the same label from one frame to the next
+STAY = 0.70          # probability of keeping the same label from one frame to the next (lower = follows quick changes)
 FLOOR = 0.02         # probability given to a label the model did not mention
 MIN_FRAMES = 2       # a sign must hold for at least this many frames
-MIN_CONF = 0.45      # and reach this mean probability
+MIN_CONF = 0.34      # and reach this mean probability (look-alike poses split it; 0.45 dropped real signs)
 MERGE_GAP_S = 0.45   # two runs of one sign closer than this are one sign (a flicker, not a repeat)
 
 
@@ -89,6 +89,58 @@ def segments(frames, times, labels, min_frames=MIN_FRAMES, min_conf=MIN_CONF, me
             prev["end"], prev["frames"] = seg["end"], total
         else:
             out.append(seg)
+    return out
+
+
+def force(frames, times, sequence, floor=FLOOR):
+    """Forced alignment: the steps in `sequence` are KNOWN to happen, in this order; find where.
+    Every step gets at least one frame, however weak its evidence, so a step the namer saw is never dropped;
+    pauses (NONE) may sit before, between and after steps. Returns one segment per step of `sequence`
+    ({"label", "start", "end", "frames", "conf", "first", "last"}), or None when there are fewer frames than steps."""
+    K, T = len(sequence), len(frames)
+    if not K or T < K:
+        return None
+    n = 2 * K + 1                                    # state 2k = pause before step k, 2k+1 = step k, 2K = pause after the last
+    label = [NONE if j % 2 == 0 else sequence[j // 2] for j in range(n)]
+
+    def emit(f, j):
+        if f is None:
+            return 0.0
+        return math.log(max(float(f.get(label[j], 0.0)), floor))
+
+    NEG = float("-inf")
+    score = [NEG] * n
+    score[0], score[1] = emit(frames[0], 0), emit(frames[0], 1)
+    back = []
+    for f in frames[1:]:
+        new, ptr = [NEG] * n, [0] * n
+        for j in range(n):
+            best, arg = score[j], j                              # stay
+            if j >= 1 and score[j - 1] > best:
+                best, arg = score[j - 1], j - 1                  # move on from the state before
+            if j % 2 == 1 and j >= 2 and score[j - 2] > best:
+                best, arg = score[j - 2], j - 2                  # step to step, no pause between
+            if best > NEG:
+                new[j], ptr[j] = best + emit(f, j), arg
+        score = new
+        back.append(ptr)
+    j = n - 1 if score[n - 1] >= score[n - 2] else n - 2
+    if score[j] == NEG:
+        return None
+    path = [j]
+    for ptr in reversed(back):
+        j = ptr[j]
+        path.append(j)
+    path.reverse()
+    out = []
+    for k in range(K):
+        idx = [i for i, j in enumerate(path) if j == 2 * k + 1]
+        if not idx:
+            return None
+        answered = [frames[i] for i in idx if frames[i] is not None]
+        conf = sum(float(f.get(sequence[k], 0.0)) for f in answered) / len(answered) if answered else 0.0
+        out.append({"label": sequence[k], "start": times[idx[0]], "end": times[idx[-1]], "frames": len(idx),
+                    "conf": round(conf, 3), "first": idx[0], "last": idx[-1]})
     return out
 
 

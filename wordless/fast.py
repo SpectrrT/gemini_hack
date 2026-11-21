@@ -36,15 +36,33 @@ Answer with JSON only: {"performed": [<number>, ...]}"""
 
 NAME_PROMPT = """You are watching one person demonstrate something once so that someone else can repeat it.
 It may be a hands-on task with objects (steps of several seconds each) or a quick series of hand, arm or body
-poses (each held for a second or less). List every DISTINCT step or pose you can see, in the order it first
-appears. If the same pose or action happens again later, do not list it twice. Do not invent anything you
-cannot see, and give no timestamps.
-Answer with JSON only: [{"name": "<2 to 6 words>", "look": "<what it looks like: hands, fingers, arms, objects, position; one sentence>"}]"""
+poses (each held for a second or less, one straight after another). Watch closely: quick poses are easy to miss.
+1. "steps": every DISTINCT step or pose, each listed once. Do not list resting, waiting, hands down or out of
+   view, or the movement between poses. Do not invent anything you cannot see.
+2. "order": what the person actually does from start to finish, as a list of step names in the order performed.
+   If a step or pose is done again later, its name appears again.
+Give no timestamps. Answer with JSON only:
+{"steps": [{"name": "<2 to 6 words>", "look": "<what it looks like: hands, fingers, arms, objects, position; one sentence>"}], "order": ["<name>", ...]}"""
 
 
-def _name(b, clip):
+def _slowed(b, clip, dur):
+    """A slowed copy of a short clip for the naming model. It samples video about once a second, so poses held
+    for half a second fell between its samples (measured: 2 of 6 named at 0.45 s a pose). Slowed 4x, each pose
+    spans about two of its samples."""
+    factor = 4 if dur <= 20 else 2 if dur <= 45 else 1
+    if factor == 1:
+        return clip, 1
+    slow = b.dir / "teach_slow.mp4"
+    video._run(["-i", str(clip), "-an", "-vf", f"setpts={factor}*PTS,fps=8,scale=-2:360", "-c:v", "libx264", "-preset", "veryfast",
+                "-crf", "30", "-pix_fmt", "yuv420p", str(slow)])
+    return slow, factor
+
+
+def _name(b, clip, dur=0.0):
     def call():
-        parts = [gemini.inline(clip.read_bytes(), "video/mp4"), {"text": NAME_PROMPT}]
+        shown, factor = _slowed(b, clip, dur) if dur else (clip, 1)
+        note = f"\n(The video is played at 1/{factor} speed so that quick poses are visible.)" if factor > 1 else ""
+        parts = [gemini.inline(shown.read_bytes(), "video/mp4"), {"text": NAME_PROMPT + note}]
         try:                                         # Carbon: it separates look-alike poses better, and was faster here
             d = gemini.generate(config.MODELS["carbon"], parts, {"responseMimeType": "application/json"}, timeout=90, tries=1)
             model = config.MODELS["carbon"]
@@ -55,16 +73,23 @@ def _name(b, clip):
             model = config.MODELS["hydrogen"]
         return {"poses": gemini.json_of(d), "lat": d["_latency"], "model": model}
     r = gemini.taped(b.key("poses"), call)
+    raw = r["poses"]
+    listed = raw.get("steps") if isinstance(raw, dict) else raw
     poses = []
-    for k, p in enumerate(r["poses"] if isinstance(r["poses"], list) else []):
+    for k, p in enumerate(listed if isinstance(listed, list) else []):
         name = str(p.get("name") or p.get("action") or "").strip()
         if name:
             poses.append({"id": f"p{k + 1:02d}", "name": name, "look": str(p.get("look") or p.get("done_when") or "").strip()})
     if not poses:
-        raise ValueError("Hydrogen saw no steps in the clip")
-    b.emit("name", "done", f"{len(poses)} distinct steps seen" + (f" in {r['lat']} s" if r.get("lat") else "") + (f" by {r['model']}" if r.get("model") else ""),
+        raise ValueError("the model saw no steps in the clip")
+    by_name = {p["name"].lower(): p["id"] for p in poses}
+    order = [by_name[str(x).strip().lower()] for x in (raw.get("order") or [] if isinstance(raw, dict) else []) if str(x).strip().lower() in by_name]
+    if not all(p["id"] in order for p in poses):     # no usable order given: None, and the frames decide the order
+        order = None
+    b.emit("name", "done", f"{len(poses)} distinct steps seen" + (f", {len(order)} performed" if order else "") +
+           (f" in {r['lat']} s" if r.get("lat") else "") + (f" by {r['model']}" if r.get("model") else ""),
            steps=[p["name"] for p in poses])
-    return poses
+    return poses, order
 
 
 def _label_frame(poses, jpeg, key):
@@ -111,7 +136,7 @@ def build(video_path, card_id=None, title="Routine", emit=None):
     times = [i / fps for i in range(len(frames))]
     b.emit("prepare", "done", f"{dur:.1f} s clip, {len(frames)} frames at {fps:.1f} a second")
 
-    poses = b.stage("name", lambda: _name(b, clip))
+    poses, order = b.stage("name", lambda: _name(b, clip, dur))
     ids = [p["id"] for p in poses]
 
     def locate():
@@ -120,15 +145,25 @@ def build(video_path, card_id=None, title="Routine", emit=None):
         if failed > max(2, len(frames) // 5):
             raise gemini.ApiError(-1, f"{failed} of {len(frames)} frames got no answer")
         probs = [a["probs"] if a else None for a in answers]
-        segs = decode.segments(probs, times, ids)
+        free = decode.segments(probs, times, ids)
+        # The model that watched the clip says WHAT happened and in what order; the frames only say WHERE.
+        # Left to themselves the frame answers dropped quick or look-alike steps the model had named.
+        segs = decode.force(probs, times, order) if order else None
+        how = "placed by the named order"
         if not segs:
-            raise ValueError("no step could be found in the clip: hold each step a little longer and keep it in view")
+            segs, how = free, "order read from the frames"
+            if not segs:
+                raise ValueError("no step could be found in the clip: hold each step a little longer and keep it in view")
         for s in segs:                               # the clearest frame of each occurrence
-            inside = [i for i, t in enumerate(times) if s["start"] <= t <= s["end"] and probs[i]]
-            s["frame"] = max(inside, key=lambda i: probs[i].get(s["label"], 0.0))
+            inside = [i for i, t in enumerate(times) if s["start"] <= t <= s["end"]]
+            s["frame"] = max(inside, key=lambda i: (probs[i] or {}).get(s["label"], 0.0))
         found = {s["label"] for s in segs}
         lost = [p["name"] for p in poses if p["id"] not in found]
-        b.emit("locate", "done", f"{len(segs)} steps in order, {len(found)} distinct" +
+        name_of = {p["id"]: p["name"] for p in poses}
+        weak = [name_of[s["label"]] for s in segs if s["conf"] < 0.2]
+        b.emit("locate", "done", f"{len(segs)} steps in order, {len(found)} distinct, {how}" +
+               (f" (the frames alone found {len(free)})" if order and len(free) != len(segs) else "") +
+               (f"; weakly seen: {', '.join(weak)}" if weak else "") +
                (f"; not found and left out: {', '.join(lost)}" if lost else "") +
                (f"; {failed} frames unanswered" if failed else ""))
         return segs
@@ -171,7 +206,8 @@ def build(video_path, card_id=None, title="Routine", emit=None):
     self_test = {}
 
     def selftest():                                  # the card follows its own teaching clip
-        pick = list(range(0, len(frames), 2 if fps > 2.5 else 1))        # every other frame is enough to check the card
+        quick = min(s["end"] - s["start"] for s in segs) < 1.2             # quick steps need every frame; slow ones every other
+        pick = list(range(0, len(frames), 1 if quick or fps <= 2.5 else 2))
         answers = _all(lambda k: signs.classify(kit, frames[pick[k]].read_bytes(), key=b.key("self", f"{pick[k]:05d}"), timeout=15, tries=3), len(pick))
         got = [s["label"] for s in decode.segments([a["probs"] if a else None for a in answers], [times[i] for i in pick], ids)]
         dist, ops = decode.align(got, sequence)

@@ -123,6 +123,18 @@ def generate(model, body):
         ids = re.findall(r"^- (s\d+):", text, re.M)
         return reply({"text": "```json\n" + json.dumps({"steps": [{"id": i, "setup": False, "trace_question": None} for i in ids],
                                                         "links": [[ids[0], ids[-1]]] if len(ids) > 1 else []}) + "\n```"})
+    if '"order"' in text:                                   # fast path naming: distinct steps plus the order performed
+        seq = []
+        for f in frames_of(base64.b64decode(media[0]["data"]), fps=5):
+            c = colour_of(f)
+            if c and (not seq or seq[-1] != c):
+                seq.append(c)
+            elif not c and seq and seq[-1] != "":
+                seq.append("")                               # a pause separates two runs of the same colour
+        seq = [c for c in seq if c]
+        distinct = list(dict.fromkeys(seq))
+        return reply({"text": json.dumps({"steps": [{"name": f"Hold up the {c} card", "look": f"The {c} card fills the view."} for c in distinct],
+                                          "order": [f"Hold up the {c} card" for c in seq]})})
     # Hydrogen naming the steps of the teaching clip
     present = []
     for f in frames_of(base64.b64decode(media[0]["data"])):

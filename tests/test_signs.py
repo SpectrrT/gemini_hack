@@ -146,3 +146,19 @@ def test_session_replays_from_tape_without_network(kit, monkeypatch):
     monkeypatch.setenv("GEMINI_BASE_URL", "http://127.0.0.1:9")
     again = signs.replay_session(kit, s.id)
     assert again.result["best"]["name"] == "Traffic"
+
+
+def test_forced_alignment_places_every_known_step_even_on_weak_evidence():
+    # b is shown for two frames and the frame answers barely see it (they would drop it); the order is known
+    weak_b = {"a": 0.3, "b": 0.25, "c": 0.3, "none": 0.15}
+    frames = [f("none")] + [f("a")] * 3 + [weak_b] * 2 + [f("c")] * 3 + [f("none")]
+    times = [i / 5 for i in range(len(frames))]
+    assert seen(frames) == ["a", "c"]                                   # free decoding loses b
+    segs = decode.force(frames, times, ["a", "b", "c"])
+    assert [s["label"] for s in segs] == ["a", "b", "c"]
+    assert segs[1]["first"] == 4 and segs[1]["last"] in (4, 5) and segs[1]["conf"] < 0.3
+    # a repeat, and no pause between steps
+    frames = [f("a")] * 2 + [f("b")] * 2 + [f("a")] * 2
+    segs = decode.force(frames, [i / 5 for i in range(6)], ["a", "b", "a"])
+    assert [(s["first"], s["last"]) for s in segs] == [(0, 1), (2, 3), (4, 5)]
+    assert decode.force([f("a")], [0.0], ["a", "b"]) is None            # fewer frames than steps
