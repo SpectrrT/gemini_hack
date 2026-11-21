@@ -46,11 +46,10 @@ the camera frame behind every step."
 **D (Tensae, 0:44)** "On sixteen public recordings of other people, ninety-seven percent of the steps they did
 were never wrongly flagged. A single model call manages ninety-one."
 
-**E (Marvin, 0:53)** "Look-alike steps are still its weak point."
+**E (Marvin, 0:53)** "One clip. No labels. No shared language needed."
 **(Tensae)** "Wordless: teach anyone anything."
 
-About 125 words. If it runs long, cut in this order: "Nothing typed" in A, then Marvin's line in E.
-Do not cut inside clip C.
+About 125 words. If it runs long, cut "Nothing typed" in A first. Do not cut inside clip C.
 
 ## Honest-labelling rules
 
