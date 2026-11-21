@@ -207,7 +207,10 @@ runs, at 2.5 to 6 minutes a run: too noisy and too slow to rely on. Details in [
 - The end-state second vote exists as a question (`checker.end_state`) but is not wired into the verdict.
 - Preset sequences are examples written from memory; check them before relying on them.
 
-## Third-party material
+## Licence
+
+The code is under the MIT License: see [LICENSE](LICENSE). Material derived from third parties keeps its own terms:
+
 
 Fixtures under `fixtures/tomato/` and `fixtures/eval_wide/` are derived from the CaptainCook4D dataset (Peddi et
 al., NeurIPS 2024 Datasets and Benchmarks, https://aria-research-lab.github.io/projects/CaptainCook4D), licensed
