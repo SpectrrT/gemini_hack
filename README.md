@@ -11,16 +11,16 @@ Gemini 4 NYC Hackathon, Nov 21 2026 (Element 119).
 
 ## Who it is for
 
-Anyone who has to pass on a hands-on routine without relying on written instructions:
+Wordless is for anyone who needs to show someone how to do a hands-on task without relying on written
+instructions.
 
-- a trainer and a new hire who do not share a language, at a prep station, a packing bench or a workshop
-- a lab or a makerspace, where a setup or shutdown sequence has to be done the same way by everyone
-- a carer or family member showing someone how to use a device or follow a daily routine
-- a teacher of signs, knots, folds or any other sequence of hand movements
+* Trainers onboarding new hires who speak a different language at a prep station, packing bench, or workshop
+* Lab and makerspace teams that need everyone to follow the same setup or shutdown sequence
+* Caregivers and family members showing someone how to use a device or follow a daily routine
+* Instructors teaching signs, knots, folds, or other sequences of hand movements
 
-One person films the routine once. The next person gets a card with no words on it and can check themselves
-against it. Wordless is a tested instruction sheet, not a coach: it says which step did not happen, not how
-well a step was done.
+One person films the routine once to create a wordless instruction card. The next person follows the card and
+uses Wordless to check which steps they completed and which they missed.
 
 ## What was built at the event
 
