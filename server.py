@@ -630,6 +630,29 @@ def eval_run():
     return jsonify(res)
 
 
+@app.get("/api/proof")
+def proof():
+    """The 16-recording eval, re-scored now from the saved answers in fixtures/eval_wide (no video, no API call)."""
+    import sys
+    scripts = str(config.ROOT / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import eval_rules as er
+    import eval_wide as ew
+    rows = er.run()
+    methods = [("card", "Card checker alone (first version)"), ("one_call", "One Hydrogen call on the whole clip (baseline)"),
+               ("review", "Card + whole-clip review (what ships)")]
+    sets = [("All 16 recordings", rows), ("12 never scored before", [r for r in rows if r["group"] == "new"])]
+    totals = [{"set": title, "rows": [dict(ew.totals(rs, m), method=label, key=m) for m, label in methods]} for title, rs in sets]
+    per = [{"recording": r["recording"], "group": r["group"], "skipped": ew.names(r["truth"]["skipped"]) if r["truth"]["skipped"] else "",
+            "changed": len(r["truth"].get("changed") or []),
+            **{m: {"false_never": ew.names(r[m]["false_never"]) if r[m]["false_never"] else "", "n_false": len(r[m]["false_never"]),
+                   "flagged": len(r[m]["flagged"]), "skips": r[m]["skips_total"],
+                   "not_sure": len(r[m]["not_sure"]) + len(r[m]["not_sure_on_skip"])} for m, _ in methods}}
+           for r in rows]
+    return jsonify({"methods": [{"key": m, "label": label} for m, label in methods], "totals": totals, "recordings": per})
+
+
 @app.errorhandler(400)
 def bad(e):
     return jsonify({"error": e.description}), 400

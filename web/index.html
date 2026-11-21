@@ -278,23 +278,28 @@
 <!-- ============================ PROOF ============================ -->
 <section id="proof">
   <div class="box">
-    <h2>Public recordings (CaptainCook4D: other people and kitchens than the teaching clip)</h2>
-    <div class="row"><button class="act primary" id="prun">Run the eval</button><span class="note" id="pnote"></span></div>
+    <h2>16 public recordings: other people, other kitchens, scored against human labels</h2>
+    <p class="note" id="pnote">Loading the saved results…</p>
+    <div id="ptotals"></div>
+    <p class="note">The card was taught from one recording of a tomato salad (CaptainCook4D 12_17) and scored on every other recording of that recipe: 5 people, 6 kitchens. The answer key is the dataset's human labels. These numbers are re-computed from saved model answers each time this tab loads; nothing is called now. They are for the 2-second window checker. The newer frame-by-frame flow has only smoke tests so far.</p>
+  </div>
+  <div class="box" style="margin-top:18px">
+    <h2>What went wrong, and what we changed</h2>
+    <ul class="tight">
+      <li><b>First version:</b> the card alone said "never happened" about a step that was performed in 11 of 16 recordings. Pepper, salt, herbs and oil all look like a hand tipping a small container; the pepper panel absorbed the others.</li>
+      <li><b>Change:</b> one whole-clip review now decides "never happened"; the card can only turn that into "not sure". False alarms fell below both the card alone and the one-call baseline.</li>
+      <li><b>Still true:</b> whole verdicts are right as often as the baseline, not more often. The rule was chosen after seeing these recordings, so it needs fresh ones to confirm. One real skip (a tomato held at the sink but not rinsed) is answered "not sure".</li>
+      <li><b>Not claimed:</b> step order, how well a step was done, amounts.</li>
+    </ul>
+  </div>
+  <div class="box" style="margin-top:18px">
+    <h2>Every recording</h2>
     <div id="ptable"></div>
-    <p class="note">Card taught from recording 12_17. <b>12_10 and 12_43 are development data: the verdict rule was tuned on them.</b> Recordings 12_26 and 12_41 (scripts/gate.sh) are the first held-out test. The text-only checker gets the 12 named steps as text, setup steps included. The same function scores these recordings and the live checker. Window accuracy is counted on windows fully inside a human-labelled step.</p>
+    <p class="note">dev = the two recordings the cut-offs were tuned on. A red cell names the performed steps wrongly reported as "never happened".</p>
   </div>
   <div class="box" style="margin-top:18px">
     <h2>Sealed-card tally (this table, today)</h2>
     <div id="tally"></div>
-  </div>
-  <div class="box" style="margin-top:18px">
-    <h2>Where it fails</h2>
-    <ul class="tight">
-      <li>Look-alike steps (salt, pepper, herbs): most wrong windows are here.</li>
-      <li>Steps shorter than about a second are not seen.</li>
-      <li>Order: only violations of must-come-before links are reported; unproven on a real order error.</li>
-      <li>How well a step was done, amounts and temperatures are out of scope.</li>
-    </ul>
   </div>
 </section>
 </main>
@@ -733,15 +738,17 @@ $('#pgate').onclick = async () => {
 const cell = c => c === null || c === undefined ? '<td class="meh">not recorded</td>'
   : c.error ? `<td class="meh">failed<br><span class="note">${c.error}</span></td>`
   : `<td class="${c.skips_caught === c.skips_total && !c.false_alarms.length ? 'ok' : 'no'}">${c.skips_caught}/${c.skips_total} skips caught<br>${c.false_alarms.length} false alarms<br>${c.found}/${c.performed} done steps found${c.unsure && c.unsure.length ? '<br>' + c.unsure.length + ' not sure<br><span class="note">without the not-sure band: ' + c.frozen_rule.skips_caught + '/' + c.skips_total + ' caught, ' + c.frozen_rule.false_alarms.length + ' false alarms</span>' : ''}${c.window_acc ? `<br><span class="note">windows ${c.window_acc[0]}/${c.window_acc[1]}</span>` : ''}</td>`;
-$('#prun').onclick = async () => {
-  $('#pnote').textContent = 'running…';
+async function loadProof() {
   try {
-    const r = await api('/api/eval', {card: 'tomato'});
-    $('#pnote').textContent = r.tape_mode === 'replay' ? 'Replayed from answers recorded against the live API. Nothing was called now.' : 'tape mode: ' + r.tape_mode;
-    $('#ptable').innerHTML = '<table><tr><th>Recording</th><th>Truly skipped</th><th>One Hydrogen call (baseline)</th><th>Text-only checker</th><th>Card checker</th></tr>' +
-      r.rows.map(x => `<tr><td><b>${x.recording}</b><br><span class="note">${x.windows} windows</span></td><td>${x.truth_panels.length ? 'panels ' + x.truth_panels.join(', ') : 'none (clean run)'}</td>${cell(x.hydrogen_one_call)}${cell(x.text_only)}${cell(x.card)}</tr>`).join('') + '</table>';
-  } catch (e) { $('#pnote').textContent = e.message; }
-};
+    const r = await api('/api/proof');
+    $('#pnote').textContent = 'Re-scored just now from saved answers (fixtures/eval_wide). No API call.';
+    $('#ptotals').innerHTML = r.totals.map(t => `<h3 style="margin:14px 0 6px">${t.set}</h3><table><tr><th>Method</th><th>False "never happened"</th><th>Recordings with one</th><th>Real skips flagged</th><th>"Not sure"</th><th>Verdict fully right</th></tr>` +
+      t.rows.map(m => `<tr${m.key === 'review' ? ' style="font-weight:700"' : ''}><td>${m.method}</td><td class="${m.false_never <= 4 ? 'ok' : 'no'}">${m.false_never} of ${m.performed} performed steps</td><td>${m.recordings_with_false_never} of ${m.n}</td><td>${m.flagged} of ${m.skips}</td><td>${m.not_sure}</td><td>${m.verdict_fully_right} of ${m.n}</td></tr>`).join('') + '</table>').join('');
+    const c = x => `<td class="${x.n_false ? 'no' : x.not_sure ? 'meh' : 'ok'}">${x.n_false ? x.false_never : 'none'}${x.skips ? `<br><span class="note">${x.flagged}/${x.skips} skips flagged</span>` : ''}${x.not_sure ? `<br><span class="note">${x.not_sure} not sure</span>` : ''}</td>`;
+    $('#ptable').innerHTML = '<table><tr><th>Recording</th><th>Truly skipped</th>' + r.methods.map(m => `<th>${m.label}</th>`).join('') + '</tr>' +
+      r.recordings.map(x => `<tr><td><b>${x.recording}</b> <span class="note">${x.group}</span></td><td>${x.skipped || 'nothing'}</td>${r.methods.map(m => c(x[m.key])).join('')}</tr>`).join('') + '</table>';
+  } catch (e) { $('#pnote').textContent = 'Could not load the saved results: ' + e.message; }
+}
 async function loadTally() {
   const rows = await api('/api/tally');
   const cls = o => o === 'correct' ? 'ok' : o === 'abstained' || o === 'pending' || o === 'not recorded' ? 'meh' : 'no';
@@ -752,6 +759,7 @@ async function loadTally() {
     : '<p class="note">No sealed trials yet. After a follow session, flip the sealed card and log what it said.</p>';
 }
 init();
+loadProof();
 </script>
 </body>
 </html>
