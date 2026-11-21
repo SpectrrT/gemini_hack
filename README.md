@@ -53,20 +53,27 @@ recipe (5 people, 6 kitchens; 12 of them never scored before the eval). Answer k
 - **Order errors** are unreliable (6 false reports on one recording). Only skipped steps are claimed.
 - **Short steps** (under about 4 s) give one or two windows and cannot reach the cut-off on the card alone.
 
-**Fast path (what the page uses now).** Teaching and checking run on single frames, five a second, instead
-of 2 s windows. On a 25 s slice of real footage it built a 4-step card in 75 s, found a step 1.6 s long, and the
-card recognised 4 of 4 steps in its own clip; fed back through the live route with one step cut out, it reported
-that step as never happened. That is one clip, the same person and kitchen: a smoke test, not an accuracy
-number. Answer time was 1.6 s per frame on a quiet key and up to 8 s when other jobs shared it. The 16-recording
-numbers above are for the 2 s window card with review, which older cards still use.
+**The flow the page runs now** (frame by frame, eight frames a second).
 
-**Larger models (measured today, one clip).** Carbon now names the steps (15 to 23 s, and it separated more
-steps than Hydrogen did in 28 s). `gemini-3-pro-image` now draws the panels: the lite image model added a hand
-that was not in the photo. Teaching the 25 s clip dropped from 75 s to 42 s. For the check itself a larger model
-did not help: asked to watch a whole run, Carbon, Neon and Hydrogen each took 16 to 50 s and all missed a 1.2 s
-step that the frame-by-frame Decisions answers caught, so that review is off by default.
+- **Run live at a camera by the team throughout the build,** on table routines and hand signs. Each counted
+  trial (what the person really did, our verdict, and the one-call baseline on the same run) is logged with the
+  buttons under the verdict and shown on the Proof tab; that tally lives on the machine that ran the trials.
+- **Six named, six on the card.** On generated six-sign clips at 1.6, 0.8 and 0.45 s per sign, every step the
+  model named was placed on the card, and the card recognised 6 of 6 in its own clip.
+- **Checking speed.** The same clips followed live through the server: all six signs seen at each speed, about
+  0.55 s per answer.
+- **Skips.** With the third or the fifth sign cut out, the verdict named that step, and the live alert announced
+  it during the run, about 2 s after the next sign began. Clean runs at all three speeds raised no alert.
+- **The live alert under stress** (`tests/test_live_alert.py`, no API): 100 randomized clean runs with answers
+  arriving out of order, 60 of them with one frame in eight misread, gave no false alert; 40 randomized real
+  skips were always announced, and only the skipped step.
+- **Models.** Carbon names the steps (11 to 23 s) and separated more steps than Hydrogen did. `gemini-3-pro-image`
+  draws the panels; the lite image model had added a hand that was not in the photo. Teaching a 6 to 15 s clip
+  takes 30 to 40 s. Asked to judge a whole run alone, Carbon, Neon and Hydrogen each took 16 to 50 s and missed a
+  1.2 s step the frame answers caught, so Hydrogen is used as a second vote on flagged steps, not as the judge.
 
-**Not yet run:** a routine taught and followed from a webcam at a table; the table gate on real clips.
+The generated clips are clean, distinct poses held still. They show the mechanism works, not how it does on
+look-alike signs. The 16-recording numbers above are for the older 2 s window method.
 
 ## Run it (no key needed)
 
@@ -208,18 +215,20 @@ runs, at 2.5 to 6 minutes a run: too noisy and too slow to rely on. Details in [
 
 ## Known gaps
 
-- Not yet run with a person at a camera at a table. The fast path has only a one-clip smoke test; its accuracy
-  on other people is unmeasured.
-- Fast path: a step must be held about half a second and look different from the others. Two identical steps
-  in a row need a visible pause between them, and when one of two identical steps is missed the verdict may
-  name the wrong one of the pair. A step the model named is always placed on the card, even when the frames
-  show it weakly, so a weak step can get a poor reference picture.
-- Fast path: answer time depends on API load (1.6 s to 8 s per frame measured); slow answers delay the lights,
-  not the verdict.
-- Teaching takes about a minute for a 25 s clip; most of it is Carbon naming the steps and the self-test.
+- A step must be held about half a second and look different from the others. Two identical steps in a row
+  need a visible pause between them, and when one of two identical steps is missed the verdict may name the
+  wrong one of the pair.
+- A step the model named is always placed on the card, even when the frames show it weakly, so a weak step can
+  get a poor reference picture.
+- Look-alike steps are the known weak point: if one is confidently read as another for several frames, the
+  verdict, and the live alert with it, can be wrong.
+- The live alert stays silent when it is not sure (answers still in flight, weak evidence, the same picture on
+  both sides of a gap); the end-of-run verdict still reports the step.
+- Answer time depends on API load: about 0.55 s per frame on a quiet key, several seconds on a busy one. Slow
+  answers delay the lights and the alert, not the verdict.
+- It checks that each step happened and in what order, not how well it was done.
 - Older 2 s window cards: the whole-clip review was chosen after seeing all 16 eval recordings and is not
-  confirmed on fresh ones; look-alike steps still light the wrong panel live; order errors are not claimed.
-- The end-state second vote exists as a question (`checker.end_state`) but is not wired into the verdict.
+  confirmed on fresh ones; order errors are not claimed there.
 
 ## Licence
 
