@@ -580,3 +580,70 @@ nav button[hidden] { display:none; }
 .panel.extra { --frame:var(--sun); box-shadow:0 0 0 2px var(--line); z-index:1; } .panel.extra .mark { background:var(--sun); color:var(--ink); }
 #follow .box > video { margin-bottom:4px; }
 .stages li.idle { color:var(--ink-3); background:var(--inset); } .stages li.idle b { color:var(--ink-3); }
+
+/* ============================================================ WORDLESS VIEW
+   What the person being checked sees has no sentences: symbols on the controls, the picture strip, one large mark.
+   Everything in words is shown only in presenter mode (key P or the small corner dot), most of it in a side drawer. */
+body:not(.presenter) :is(.words, header .tag, #mode, #teach h2, #follow h2, #tdropped, #trecT) { display:none; }
+body:not(.presenter) #tcardWrap .row > :not(#tgo) { display:none; }
+body:not(.presenter) #teach .box:has(#stages) { display:none; }
+.sym { font-size:1.05em; line-height:1; }
+nav button { min-width:44px; }
+button.act.primary:not(:has(.words:not([hidden]))) { min-width:64px; }
+body:not(.presenter) button.act { min-width:56px; font-size:18px; }
+body:not(.presenter) button.act.primary { min-width:84px; font-size:22px; min-height:54px; }
+
+#drawer {
+  position:fixed; top:0; right:0; bottom:0; z-index:40; width:min(430px, 92vw); padding:18px 18px 60px; overflow:auto; overscroll-behavior:contain;
+  background:var(--surface); box-shadow:-6px 0 0 var(--ledge); translate:100% 0; visibility:hidden; transition:translate .25s var(--ease-out), visibility 0s .25s;
+  display:flex; flex-direction:column; gap:14px;
+}
+body.presenter #drawer { translate:0; visibility:visible; transition:translate .25s var(--ease-out); }
+#drawer #statusline { border:0; padding:0; flex-basis:auto; }
+#drawer .vs { grid-template-columns:1fr; margin:0; gap:12px; }
+#drawer .vs .verdict:is(.clean, .bad, .unsure) { font-size:28px; }
+#drawer .verdict { margin:0; min-height:0; box-shadow:0 0 0 2px var(--line-strong); }
+#drawer .base, #drawer .keepbox { box-shadow:0 0 0 2px var(--line-strong); max-width:none; }
+#drawer .scope { margin:0; background:var(--inset); }
+#drawer #fmore { margin:0; border:0; padding:0; } #drawer #fmore summary { display:none; }
+#drawer #sealed { box-shadow:0 0 0 2px var(--line-strong); margin:0 !important; }
+#pbtn { position:fixed; right:10px; bottom:10px; z-index:50; width:20px; height:20px; padding:0; border:0; border-radius:50%; background:var(--ink-3); opacity:.3; cursor:pointer; transition:opacity .15s ease; }
+#pbtn:hover, body.presenter #pbtn { opacity:.8; }
+body:has(#ferr:not(:empty)):not(.presenter) #pbtn { background:var(--tomato); opacity:1; width:26px; height:26px; }   /* something needs the operator */
+
+/* the large mark for the whole run */
+.pv { order:-2; height:112px; margin:0 0 16px; border-radius:var(--r-card); display:grid; place-items:center; position:relative; overflow:hidden; border:2.5px dashed var(--line-strong); }
+.pv .pix { display:none; }
+.pv.run { border-style:solid; border-color:var(--sun); background:var(--surface); }
+.pv.run .pix { display:grid; grid-template-columns:repeat(3, 12px); gap:5px; }
+.pv.run .pix i { width:12px; height:12px; border-radius:50%; background:var(--ink); }
+.pv:is(.good, .bad, .warn) { border:0; box-shadow:0 6px 0 rgba(35,26,58,.16); animation:verdict-in .32s var(--ease-out) both; }
+.pv.good { background:var(--mint); } .pv.bad { background:var(--tomato); } .pv.warn { background:var(--sun); }
+.pv:is(.good, .bad, .warn)::after { content:""; width:92px; height:92px; background:center / contain no-repeat; animation:count-pop .35s var(--ease-out) .12s both; }
+.pv.good::after { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23231a3a' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.500l5.500 5.500L20 6.500'/%3E%3C/svg%3E"); }
+.pv.bad::after { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23231a3a' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
+.pv.warn::after { content:"?"; background:none; width:auto; height:auto; font:800 84px/1 var(--display); color:var(--ink); }
+
+/* strip, with extra steps after it */
+.stripRow { display:flex; gap:14px; align-items:flex-start; }
+.stripRow #fcardGrid { flex:1 1 auto; min-width:0; max-width:max(520px, calc((100vh - 316px) * 1.777)); }
+.extras { flex:0 0 168px; display:grid; gap:10px; }
+.extras:empty { display:none; }
+.panel.xtra { box-shadow:0 0 0 2px var(--line), 0 4px 0 var(--ledge); --frame:var(--sun); }
+.panel.xtra .mark { background:var(--sun); color:var(--ink); }
+
+/* every state is a colour AND a symbol */
+.panel .mark { width:clamp(34px, 3.3vw, 46px); height:clamp(34px, 3.3vw, 46px); font-size:clamp(18px, 1.8vw, 25px); font-weight:800; }
+.panel.skipped img:not(.inset) { opacity:.4; }
+.panel.swap { --frame:var(--sun); box-shadow:0 0 0 2px var(--line); z-index:1; } .panel.swap .mark { background:var(--sun); color:var(--ink); }
+.panel.wrongp { --frame:var(--tomato); box-shadow:0 0 0 2px var(--line); z-index:1; background:var(--red-tint); } .panel.wrongp .mark { background:var(--tomato); color:var(--ink); }
+.panel.wrongp > img:not(.inset) { opacity:.4; mix-blend-mode:multiply; }
+.panel .inset { position:absolute; right:8px; bottom:8px; z-index:2; width:44%; height:auto; aspect-ratio:16/9; object-fit:contain; background:#fff; border-radius:10px; box-shadow:0 0 0 3px var(--ink); }
+
+/* teaching progress without words: one dot per build stage */
+.tprog { display:inline-flex; gap:6px; align-items:center; margin-left:6px; }
+.tprog i { width:14px; height:14px; border-radius:50%; background:var(--line-strong); }
+.tprog i.running { background:var(--sun); animation:pulse 1s ease-in-out infinite; } .tprog i.done { background:var(--mint); } .tprog i.failed { background:var(--tomato); } .tprog i.skipped { background:var(--line-strong); }
+@media (prefers-reduced-motion:reduce) { #drawer { transition:none; } .pv, .pv::after { animation-name:fade-only !important; } }
+.panel.now::after { animation:none; box-shadow:inset 0 0 0 7px var(--sun); }   /* the current step: a steady, strong outline */
+@media (min-width:1100px) { body.presenter { padding-right:430px; } body.presenter header { margin-right:0; } }   /* open drawer pushes the page, hides nothing */
